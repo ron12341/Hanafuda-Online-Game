@@ -1,0 +1,84 @@
+# Dependency directories
+**/node_modules/
+**/.pnpm-store/
+.pnpm-debug.log
+
+# Build outputs
+**/dist/
+**/build/
+**/.next/
+**/out/
+
+# Environment files
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Logs
+**/*.log
+**/logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Editor/IDE
+**/.vscode/
+**/.idea/
+**/*.swp
+**/.swc/
+**/.DS_Store
+
+# Runtime data
+**/.pnp
+**/.pnp.js
+
+# System Files
+**/Thumbs.db
+
+##############################
+# Project-specific ignores
+##############################
+
+# WebSocket Server (socket.io, express)
+/packages/websocket-server/.cache/
+/packages/websocket-server/coverage/
+
+# API Server (Node.js, express)
+/packages/api-server/.nyc_output/
+/packages/api-server/coverage/
+
+# Frontend Web (React, Tailwind, Vite, SWC)
+/packages/frontend-web/.swcrc.local
+/packages/frontend-web/.vite/
+/packages/frontend-web/__sapper__/
+/packages/frontend-web/.svelte-kit/
+/packages/frontend-web/*.css.map
+
+##############################
+# Lockfiles (choose one based on your package manager)
+##############################
+# Uncomment based on your package manager:
+
+# For npm
+#package-lock.json
+
+# For Yarn
+#yarn.lock
+
+# For pnpm
+#pnpm-lock.yaml
+
+##############################
+# Optional
+##############################
+
+# Testing
+#**/jest_cache/
+#**/cypress/videos/
+#**/cypress/screenshots/
+
+# TypeScript
+#**/*.tsbuildinfo
+
+# Vite
+#**/.vite/
