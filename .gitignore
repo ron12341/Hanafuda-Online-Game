@@ -54,33 +54,4 @@
 /packages/frontend-web/.svelte-kit/
 /packages/frontend-web/*.css.map
 
-##############################
-# Lockfiles (choose one based on your package manager)
-##############################
-# Uncomment based on your package manager:
-
-# For npm
-#package-lock.json
-
-# For Yarn
-#yarn.lock
-
-# For pnpm
-#pnpm-lock.yaml
-
-##############################
-# Optional
-##############################
-
-# Testing
-#**/jest_cache/
-#**/cypress/videos/
-#**/cypress/screenshots/
-
-# TypeScript
-#**/*.tsbuildinfo
-
-# Vite
-#**/.vite/
-
 *.txt
