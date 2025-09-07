@@ -1,0 +1,305 @@
+import { createContext, useContext, useCallback, useEffect, useReducer } from "react";
+import { useSocket } from "./SocketContext";
+import { usePlayer } from "./PlayerContext";
+
+const RoomStateContext = createContext();
+
+const roomReducer = (state, action) => {
+  switch (action.type) {
+    case "UPDATE_ROOM":
+      return {
+        ...state,
+        id: action.id || state.id,
+        name: action.name || state.name,
+        players: action.players || state.players,
+        creatorId: action.creatorId || state.creatorId,
+        settings: action.settings || state.settings,
+        error: null, // Clear errors on successful update
+      };
+
+    case "ADD_PLAYER":
+      return {
+        ...state,
+        players: [...state.players, action.player],
+        error: null, // Clear errors on successful update
+      };
+
+    case "REMOVE_PLAYER":
+      return {
+        ...state,
+        players: state.players.filter((p) => p.id !== action.playerId),
+        error: null,
+      };
+
+    case "TRANSFER_CREATOR":
+      return {
+        ...state,
+        creatorId: action.playerId,
+        error: null,
+      };
+
+    case "UPDATE_PLAYER_READY":
+      return {
+        ...state,
+        players: state.players.map((player) =>
+          player.id === action.playerId ? { ...player, isReady: action.isReady } : player
+        ),
+        error: null,
+        isOperating: false,
+      };
+
+    case "UPDATE_PLAYERS":
+      console.log("Updating players", action.players);
+      return {
+        ...state,
+        players: action.players || [],
+        error: null, // Clear errors on successful update
+      };
+
+    case "ROOM_OPERATION_START":
+      return {
+        ...state,
+        isOperating: true,
+        operationError: null,
+      };
+
+    case "ROOM_OPERATION_SUCCESS":
+      return {
+        ...state,
+        isOperating: false,
+        operationError: null,
+      };
+
+    case "ROOM_OPERATION_ERROR":
+      return {
+        ...state,
+        isOperating: false,
+        operationError: action.error,
+      };
+
+    case "SET_LOADING":
+      return {
+        ...state,
+        isLoading: action.isLoading,
+      };
+
+    case "SET_ERROR":
+      return {
+        ...state,
+        error: action.error,
+      };
+
+    case "CLEAR_ERRORS":
+      return {
+        ...state,
+        error: null,
+        operationError: null,
+      };
+
+    case "CLEAR_ROOM":
+      return {
+        id: "",
+        players: [],
+        name: "",
+        isLoading: false,
+        isOperating: false,
+        error: null,
+        operationError: null,
+        creatorId: "",
+        settings: { maxPlayers: 4, totalRounds: 3, visibility: "public", minPlayers: 3 },
+      };
+
+    default:
+      return state;
+  }
+};
+
+export const RoomProvider = ({ children }) => {
+  const [state, dispatch] = useReducer(roomReducer, {
+    id: "",
+    players: [],
+    name: "",
+    creatorId: "",
+    settings: { maxPlayers: 4, totalRounds: 3, visibility: "public", minPlayers: 3 },
+    isLoading: false,
+    isOperating: false,
+    error: null,
+    operationError: null,
+  });
+
+  const { emitSafe, socket } = useSocket();
+  const { playerId, setRoomId } = usePlayer();
+
+  // Socket event listeners
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleRoomState = (roomData) => {
+      console.log("Updating room state", roomData);
+      dispatch({
+        type: "UPDATE_ROOM",
+        id: roomData.id,
+        name: roomData.name,
+        players: roomData.players,
+        creatorId: roomData.creatorId,
+        settings: roomData.settings,
+      });
+    };
+
+    const handleRoomPlayersUpdate = (playersData) => {
+      dispatch({
+        type: "UPDATE_PLAYERS",
+        players: playersData.players,
+      });
+    };
+
+    const handleRoomOperationError = (errorData) => {
+      console.error("Room operation error", errorData);
+      dispatch({ type: "ROOM_OPERATION_ERROR", error: errorData.error });
+    };
+
+    const handlePlayerJoined = (playerData) => {
+      dispatch({
+        type: "ADD_PLAYER",
+        player: playerData,
+      });
+    };
+
+    const handlePlayerLeft = (playerData) => {
+      console.log("Player left room", playerData);
+      dispatch({
+        type: "REMOVE_PLAYER",
+        playerId: playerData.id,
+      });
+    };
+
+    const handlePlayerReady = (readyData) => {
+      dispatch({
+        type: "UPDATE_PLAYER_READY",
+        playerId: readyData.playerId,
+        isReady: readyData.isReady,
+      });
+    };
+
+    socket.on("room-state", handleRoomState);
+    socket.on("room-players-update", handleRoomPlayersUpdate);
+    socket.on("room-state-error", handleRoomOperationError);
+    socket.on("player-joined-room", handlePlayerJoined);
+    socket.on("player-left-room", handlePlayerLeft);
+    socket.on("player-ready-changed", handlePlayerReady);
+
+    return () => {
+      socket.off("room-state", handleRoomState);
+      socket.off("room-players-update", handleRoomPlayersUpdate);
+      socket.off("room-state-error", handleRoomOperationError);
+      socket.off("player-joined-room", handlePlayerJoined);
+      socket.off("player-left-room", handlePlayerLeft);
+      socket.off("player-ready-changed", handlePlayerReady);
+    };
+  }, [socket]); // No state dependencies!
+
+  const fetchRoomData = useCallback(
+    (roomId) => {
+      if (!socket) {
+        dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
+        return;
+      }
+
+      console.log("Fetching room data for room: ", roomId, "player: ", playerId);
+      emitSafe("request-room-state", { playerId: playerId, roomId });
+    },
+    [emitSafe, socket, playerId]
+  );
+
+  const leaveRoom = useCallback(() => {
+    if (!socket) {
+      dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
+      return;
+    }
+
+    dispatch({ type: "ROOM_OPERATION_START" });
+
+    return new Promise((resolve) => {
+      const handleSucess = () => {
+        console.log("SUCCESS LEAVING ROOM");
+        cleanupListeners();
+        dispatch({ type: "CLEAR_ROOM" });
+        resolve({ success: true });
+        setRoomId("");
+      };
+
+      const handleError = (data) => {
+        cleanupListeners();
+        dispatch({ type: "ROOM_OPERATION_ERROR", error: data.error });
+        resolve({ success: false, error: data.error });
+      };
+
+      const cleanupListeners = () => {
+        socket.off("leave-room-success", handleSucess);
+        socket.off("leave-room-error", handleError);
+      };
+
+      socket.once("leave-room-success", handleSucess);
+      socket.once("leave-room-error", handleError);
+      socket.emit("leave-room");
+    });
+  }, [emitSafe, socket]);
+
+  const changeReady = useCallback(
+    (isReady) => {
+      if (!socket) {
+        dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
+        return;
+      }
+
+      dispatch({ type: "ROOM_OPERATION_START" });
+
+      return new Promise((resolve) => {
+        const handleSucess = (data) => {
+          cleanupListeners();
+          dispatch({ type: "UPDATE_PLAYER_READY", playerId: data.playerId, isReady: data.isReady });
+          resolve({ success: true, isReady: data.isReady });
+        };
+
+        const handleError = (data) => {
+          cleanupListeners();
+          dispatch({ type: "ROOM_OPERATION_ERROR", error: data.error });
+          resolve({ success: false, error: data.error });
+        };
+
+        const cleanupListeners = () => {
+          socket.off("ready-change-success", handleSucess);
+          socket.off("ready-change-error", handleError);
+        };
+
+        socket.once("ready-change-success", handleSucess);
+        socket.once("ready-change-error", handleError);
+
+        socket.emit("ready-change", { isReady: isReady });
+      });
+    },
+    [emitSafe, socket]
+  );
+
+  const clearErrors = useCallback(() => {
+    dispatch({ type: "CLEAR_ERRORS" });
+  }, []);
+
+  const value = {
+    ...state,
+    fetchRoomData,
+    leaveRoom,
+    clearErrors,
+    changeReady,
+  };
+
+  return <RoomStateContext.Provider value={value}>{children}</RoomStateContext.Provider>;
+};
+
+export const useRoom = () => {
+  const context = useContext(RoomStateContext);
+  if (!context) {
+    throw new Error("useRoom must be used within a RoomProvider");
+  }
+  return context;
+};
