@@ -132,47 +132,45 @@ export class RoomService {
     }
   }
 
-  // private handleStartGame(socket: HanafudaSocket) {
-  //   try {
-  //     if (!socket.data.roomId) {
-  //       socket.emit("start-game-error", { error: "Player not in room" });
-  //       return;
-  //     }
+  private handleStartGame(socket: HanafudaSocket) {
+    try {
+      if (!socket.data.roomId) {
+        socket.emit("start-game-error", { error: "Player not in room" });
+        return;
+      }
 
-  //     const room = this.getRoomById(socket.data.roomId);
-  //     const player = this.services.playerService.getPlayerById(socket.data.playerId);
+      const room = this.getRoomById(socket.data.roomId);
+      const player = this.services.playerService.getPlayerById(socket.data.playerId);
 
-  //     if (!room || !player) {
-  //       socket.emit("start-game-error", { error: "Room or player not found" });
-  //       return;
-  //     }
+      if (!room || !player) {
+        socket.emit("start-game-error", { error: "Room or player not found" });
+        return;
+      }
 
-  //     // Check if player is room creator
-  //     if (room.getCreatorId() !== player.getId()) {
-  //       socket.emit("start-game-error", { error: "Only room creator can start the game" });
-  //       return;
-  //     }
+      // Check if player is room creator
+      if (room.getCreatorId() !== player.getId()) {
+        socket.emit("start-game-error", { error: "Only room creator can start the game" });
+        return;
+      }
 
-  //     // Check if all players are ready
-  //     const allPlayersReady = room.getPlayers().every(p => p.getIsReady());
-  //     if (!allPlayersReady) {
-  //       socket.emit("start-game-error", { error: "All players must be ready to start" });
-  //       return;
-  //     }
+      // Check if all players are ready
+      const allPlayersReady = room.getPlayers().every((p) => p.getIsReady());
+      if (!allPlayersReady) {
+        socket.emit("start-game-error", { error: "All players must be ready to start" });
+        return;
+      }
 
-  //     // Start game through game service
-  //     const game = this.services.gameService.startGame(room);
+      // Start game through game service
+      const game = this.services.gameService.createGame(room.getId(), room.getPlayers());
 
-  //     // Notify room
-  //     this.services.io.to(room.getId()).emit("game-started", {
-  //       gameId: game.getId(),
-  //       roomId: room.getId(),
-  //     });
-
-  //   } catch (error: any) {
-  //     socket.emit("start-game-error", { error: error.message });
-  //   }
-  // }
+      // Notify room
+      this.services.io.to(room.getId()).emit("game-started", {
+        gameId: game.getId(),
+      });
+    } catch (error: any) {
+      socket.emit("start-game-error", { error: error.message });
+    }
+  }
 
   // handlePlayerReconnection(socket: HanafudaSocket, roomId: string) {
   //   socket.join(roomId);

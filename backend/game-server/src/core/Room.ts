@@ -84,6 +84,11 @@ export class Room {
     return this.players.length >= this.settings.maxPlayers;
   }
 
+  clearGame(): void {
+    this.gameId = undefined;
+    this.status = "waiting";
+  }
+
   getState(): any {
     return {
       id: this.id,

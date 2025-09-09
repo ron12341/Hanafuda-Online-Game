@@ -5,6 +5,7 @@ import { LobbyStateDTO } from "./dtos/LobbyState.dto";
 import { PlayerStateDTO } from "./dtos/PlayerState.dto";
 import { Player } from "@core/Player";
 import { RoomSettings } from "./room.interface";
+import { GameStateDTO } from "./game.interface";
 
 export interface ClientToServerEvents {
   "join-game": (gameId: string, callback: (success: boolean) => void) => void;
@@ -96,15 +97,15 @@ export interface ServerToClientEvents {
   "player-ready-changed": (data: { playerId: string; isReady: boolean }) => void;
   "player-reconnected": (data: { playerId: string; username: string }) => void;
 
+  "start-game-error": (data: { error: string }) => void;
+  "game-started": (data: { gameId: string }) => void;
+  "game-state": (data: { state: GameStateDTO }) => void;
+
   // Game Events
   "player-joined": (playerId: string) => void;
   "player-left": (playerId: string) => void;
   "invalid-move": (message: string) => void;
   "player-state": (player: PlayerStateDTO) => void;
-  "game-started": (data: {
-    gameId: string;
-    initialState: any; // Replace with GameState type if available
-  }) => void;
 
   // Utility Events
   pong: () => void;

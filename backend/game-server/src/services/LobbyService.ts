@@ -12,7 +12,7 @@ export class LobbyService implements ILobbyService {
   private rooms: Room[] = [];
   private broadcastDebounce: NodeJS.Timeout | null = null;
 
-  constructor(private io: HanafudaIO, private services: ServiceContainer) {}
+  constructor(private services: ServiceContainer) {}
 
   // Player management
   addPlayerToLobby(player: Player): void {

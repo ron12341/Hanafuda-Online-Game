@@ -1,5 +1,6 @@
 import { PlayerStateDTO } from "@interfaces/dtos/PlayerState.dto";
 import { PlayerGameData } from "@interfaces/player.interface";
+import { HanafudaCard } from "./Card";
 
 export class Player {
   private id: string;
@@ -8,8 +9,10 @@ export class Player {
   private isReady: boolean;
   private roomId?: string;
   private gameId?: string;
-  private gameData?: PlayerGameData;
   private connectionStatus?: "connected" | "disconnected";
+
+  private gameData?: PlayerGameData;
+  private hand: HanafudaCard[] = [];
 
   constructor(socketId: string, name?: string) {
     this.id = socketId;
@@ -28,6 +31,13 @@ export class Player {
 
   joinRoom(roomId: string): void {
     this.roomId = roomId;
+    this.status = "in-room";
+  }
+
+  clearGame(): void {
+    this.gameId = undefined;
+    this.gameData = undefined;
+    this.hand = [];
     this.status = "in-room";
   }
 
@@ -60,6 +70,10 @@ export class Player {
     return this.connectionStatus;
   }
 
+  getHand(): HanafudaCard[] {
+    return this.hand;
+  }
+
   getState(): PlayerStateDTO {
     return {
       id: this.id,
@@ -85,5 +99,13 @@ export class Player {
 
   setIsReady(isReady: boolean): void {
     this.isReady = isReady;
+  }
+
+  setGameId(gameId: string): void {
+    this.gameId = gameId;
+  }
+
+  setHand(hand: HanafudaCard[]): void {
+    this.hand = hand;
   }
 }

@@ -17,9 +17,9 @@ export class ServiceContainer {
 
   constructor(io: HanafudaIO) {
     this.playerService = new PlayerService();
-    this.lobbyService = new LobbyService(io, this);
+    this.lobbyService = new LobbyService(this);
     this.roomService = new RoomService(this);
-    this.gameService = new GameService(io);
+    this.gameService = new GameService(this);
     this.sessionService = new SessionService(this);
     this.socketManager = new SocketManager(io, this);
     this.io = io;

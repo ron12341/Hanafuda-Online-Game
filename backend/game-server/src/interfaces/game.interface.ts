@@ -1,28 +1,43 @@
-import { HanafudaCard } from "./card.interface";
-import { PlayerGameData } from "./player.interface";
+import { HanafudaCard } from "@core/Card";
+import { Player } from "@core/Player";
 
-export interface GameState {
-  rounds: Round[];
-  players: PlayerGameData[];
+export interface GameRules {
+  scoringSystem: "koi-koi" | "88" | "standard";
+  pointsToWin: number;
+  maxRounds: number;
+  allowKoiKoi: boolean;
+  turnTimeLimit: number; // seconds
+  settings: GameSettings;
+}
+
+export interface GameSettings {
+  maxPlayers: number;
+  minPlayers: number;
+  startingCards: number;
+  tableCards: number;
+}
+
+export interface RoundResult {
+  roundNumber: number;
+  scores: { [playerId: string]: number };
+  winner?: string;
+}
+
+export interface Yaku {
+  name: string;
+  points: number;
+  cards: HanafudaCard[];
+  description: string;
+}
+
+export interface GameStateDTO {
+  id: string;
+  roomId: string;
   currentRound: number;
-}
-
-export interface Round {
-  number: number;
-  field: HanafudaCard[];
-  deck: HanafudaCard[];
-  currentPlayerId: string;
-  moves: GameMove[];
-  scores?: RoundScores;
-}
-
-export interface GameMove {
-  type: "capture" | "discard" | "deck-draw";
-  playerId: string;
-  cards: HanafudaCard[]; // Cards involved in the move
-  timestamp: Date;
-}
-
-interface RoundScores {
-  [playerId: string]: number;
+  players: string[];
+  table: HanafudaCard[];
+  currentTurnIndex: number;
+  scores: Map<string, number>;
+  roundHistory: RoundResult[];
+  temporaryCaptures: Map<string, HanafudaCard[]>;
 }
