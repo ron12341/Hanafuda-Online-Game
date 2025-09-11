@@ -1,5 +1,7 @@
 import { HanafudaCard } from "@core/Card";
 import { Player } from "@core/Player";
+import { PlayerGameData } from "./player.interface";
+import { PlayerGameStateDTO } from "./dtos/PlayerState.dto";
 
 export interface GameRules {
   scoringSystem: "koi-koi" | "88" | "standard";
@@ -34,10 +36,8 @@ export interface GameStateDTO {
   id: string;
   roomId: string;
   currentRound: number;
-  players: string[];
-  table: HanafudaCard[];
   currentTurnIndex: number;
-  scores: Map<string, number>;
-  roundHistory: RoundResult[];
-  temporaryCaptures: Map<string, HanafudaCard[]>;
+  players: PlayerGameStateDTO[];
+  table: HanafudaCard[];
+  myHand: HanafudaCard[];
 }

@@ -40,7 +40,7 @@ export class SocketManager {
     // Setup handlers from each service
     this.services.lobbyService.setupSocketHandlers(socket);
     this.services.roomService.setupSocketHandlers(socket);
-    // this.services.gameService.setupSocketHandlers(socket);
+    this.services.gameService.setupSocketHandlers(socket);
 
     // Connection events (stay in SocketManager)
     socket.on("disconnect", (reason) => {

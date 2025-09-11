@@ -1,4 +1,4 @@
-import { PlayerStateDTO } from "@interfaces/dtos/PlayerState.dto";
+import { PlayerGameStateDTO, PlayerStateDTO } from "@interfaces/dtos/PlayerState.dto";
 import { PlayerGameData } from "@interfaces/player.interface";
 import { HanafudaCard } from "./Card";
 
@@ -12,7 +12,6 @@ export class Player {
   private connectionStatus?: "connected" | "disconnected";
 
   private gameData?: PlayerGameData;
-  private hand: HanafudaCard[] = [];
 
   constructor(socketId: string, name?: string) {
     this.id = socketId;
@@ -20,6 +19,14 @@ export class Player {
     this.status = "in-lobby";
     this.isReady = false;
     this.connectionStatus = "connected";
+  }
+
+  initializeGameData(): void {
+    this.gameData = {
+      hand: [],
+      captured: [],
+      roundScores: [],
+    };
   }
 
   moveTolobby(): void {
@@ -37,7 +44,6 @@ export class Player {
   clearGame(): void {
     this.gameId = undefined;
     this.gameData = undefined;
-    this.hand = [];
     this.status = "in-room";
   }
 
@@ -70,19 +76,12 @@ export class Player {
     return this.connectionStatus;
   }
 
-  getHand(): HanafudaCard[] {
-    return this.hand;
+  getGameData(): PlayerGameData | undefined {
+    return this.gameData;
   }
 
-  getState(): PlayerStateDTO {
-    return {
-      id: this.id,
-      name: this.name,
-      isReady: this.isReady,
-      status: this.status,
-      roomId: this.roomId,
-      gameId: this.gameId,
-    };
+  getHand(): HanafudaCard[] | undefined {
+    return this.gameData?.hand;
   }
 
   setId(id: string): void {
@@ -105,7 +104,40 @@ export class Player {
     this.gameId = gameId;
   }
 
-  setHand(hand: HanafudaCard[]): void {
-    this.hand = hand;
+  setGameData(gameData: PlayerGameData): void {
+    this.gameData = gameData;
+  }
+
+  setHand(cards: HanafudaCard[]): void {
+    this.gameData!.hand = cards;
+  }
+
+  playCard(card: HanafudaCard, targetCard: HanafudaCard): void {
+    // remove the card from the player's hand
+    this.gameData!.hand = this.gameData!.hand.filter((c) => c.id !== card.id);
+
+    // add the card to the table
+    this.gameData!.captured.push(card);
+    this.gameData!.captured.push(targetCard);
+  }
+
+  getState(): PlayerStateDTO {
+    return {
+      id: this.id,
+      name: this.name,
+      isReady: this.isReady,
+      status: this.status,
+      roomId: this.roomId,
+      gameId: this.gameId,
+    };
+  }
+
+  getGameState(): PlayerGameStateDTO {
+    return {
+      id: this.id,
+      name: this.name,
+      captured: this.gameData?.captured || [],
+      roundScores: this.gameData?.roundScores || [],
+    };
   }
 }

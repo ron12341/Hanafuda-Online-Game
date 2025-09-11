@@ -50,9 +50,9 @@ export class RoomService {
       this.handleReadyChange(socket, data);
     });
 
-    // socket.on("start-game", () => {
-    //   this.handleStartGame(socket);
-    // });
+    socket.on("start-game", () => {
+      this.handleStartGame(socket);
+    });
   }
 
   private handleRoomStateRequest(socket: HanafudaSocket, data: { playerId: string; roomId: string }) {

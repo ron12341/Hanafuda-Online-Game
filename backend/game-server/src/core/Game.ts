@@ -3,6 +3,7 @@ import { HanafudaCard } from "./Card";
 import { HanafudaDeck } from "./Deck";
 import { Player } from "./Player";
 import { GameRules, GameSettings, GameStateDTO, RoundResult } from "@interfaces/game.interface";
+import { start } from "repl";
 
 export class Game {
   private id: string;
@@ -19,10 +20,6 @@ export class Game {
   private currentTurnIndex: number;
   // private turnPhase: "draw" | "play" | "capture" | "scoring";
 
-  // Scoring & Rounds
-  private scores: Map<string, number> = new Map(); // playerId -> total score
-  private roundHistory: RoundResult[] = [];
-
   // Game Rules & Configuration
   // private rules: GameRules;
   // private settings: GameSettings;
@@ -32,37 +29,28 @@ export class Game {
   // private lastActionTime: Date;
   // private turnTimer?: NodeJS.Timeout;
 
-  // Yaku & Collections
-  private temporaryCaptures: Map<string, HanafudaCard[]> = new Map();
-
   constructor(roomId: string, players: Player[]) {
-    this.id = generateId(8);
+    this.id = roomId; // use the same id as the roomId
     this.roomId = roomId;
     this.players = players;
     this.currentRound = 1;
     // this.rules = rules || getDefaultRules();
     // this.settings = this.rules.settings;
 
-    // Initialize scores
-    players.forEach((player) => {
-      this.scores.set(player.getId(), 0);
-      this.temporaryCaptures.set(player.getId(), []);
-    });
-
     // this.turnOrder = this.determineTurnOrder();
     this.currentTurnIndex = 0;
+
+    this.startGame();
   }
 
   // Game Lifecycle Methods
   public startGame(): void {
+    this.players.forEach((player) => player.initializeGameData());
+
     this.initializeDeck();
     this.dealCards();
     this.startTurn();
   }
-
-  // public endGame(): void {
-  //   this.calculateFinalScores();
-  // }
 
   // Card Management
   private initializeDeck(): void {
@@ -74,10 +62,7 @@ export class Game {
     const cardsPerPlayer = 7;
     const tableCards = 6;
 
-    this.players.forEach((player) => {
-      player.setHand(this.deck.deal(cardsPerPlayer));
-    });
-
+    this.players.forEach((player) => player.setHand(this.deck.deal(cardsPerPlayer)));
     this.table = this.deck.deal(tableCards);
   }
 
@@ -91,59 +76,42 @@ export class Game {
     this.startTurn();
   }
 
-  // private startTurnTimer(): void {
-  //   this.cleanupTimers();
-  //   this.turnTimer = setTimeout(() => {
-  //     this.handleTurnTimeout();
-  //   }, this.settings.turnTimeLimit * 1000);
-  // }
+  public playCard(
+    playerId: string,
+    cardId: string,
+    targetCardId: string
+  ): { handCard: HanafudaCard; targetCard: HanafudaCard } {
+    try {
+      // Check if player is in game
+      const player = this.players.find((player) => player.getId() === playerId);
+      if (!player) {
+        throw new Error("Player not found in game.");
+      }
 
-  // private cleanupTimers(): void {
-  //   if (this.turnTimer) {
-  //     clearTimeout(this.turnTimer);
-  //     this.turnTimer = undefined;
-  //   }
-  // }
+      // Check if player has the card
+      const handCard = player.getHand()!.find((card) => card.id === cardId);
+      if (!handCard) {
+        throw new Error("Card not found in player's hand.");
+      }
 
-  // Player Actions
-  // public drawCard(playerId: string): HanafudaCard | undefined {
-  //   // if (!this.isPlayerTurn(playerId) || this.turnPhase !== "draw") {
-  //   //   return null;
-  //   // }
+      // Check if target card is on the table
+      const targetCard = this.table.find((card) => card.id === targetCardId);
+      if (!targetCard) {
+        throw new Error("Target card not found on table.");
+      }
 
-  //   if (this.deck.getRemainingCount() === 0) {
-  //     this.endRound();
-  //     return undefined;
-  //   }
+      // check if valid move
+      if (!handCard.matchesMonth(targetCard)) {
+        throw new Error("Invalid card play.");
+      }
 
-  //   const card = this.deck.draw();
-  //   // this.turnPhase = "play";
-  //   return card;
-  // }
+      player.playCard(handCard, targetCard);
+      this.table = this.table.filter((card) => card.id !== targetCardId);
 
-  public playCard(playerId: string, cardId: string, targetCardId: string): boolean {
-    // Validate and execute card play
-    const playerCard = this.deck.getCardById(cardId);
-    const targetCard = this.table.find((card) => card.id === targetCardId);
-
-    if (!playerCard || !targetCard) {
-      return false;
+      return { handCard, targetCard };
+    } catch (error: any) {
+      throw error;
     }
-
-    if (!playerCard.matchesMonth(targetCard)) {
-      return false;
-    }
-
-    return this.captureCards(playerId, playerCard, targetCard);
-  }
-
-  public captureCards(playerId: string, handCard: HanafudaCard, targetCard: HanafudaCard): boolean {
-    if (!handCard.matchesMonth(targetCard)) {
-      return false;
-    }
-
-    this.temporaryCaptures.get(playerId)?.push(handCard);
-    return true;
   }
 
   // Scoring Methods
@@ -164,49 +132,18 @@ export class Game {
     return this.getCurrentPlayer().getId() === playerId;
   }
 
-  public getGameState(forPlayerId?: string): GameStateDTO {
+  public getState(forPlayerId: string): GameStateDTO {
     // Return sanitized game state for client
     return {
       id: this.id,
       roomId: this.roomId,
       currentRound: this.currentRound,
-      players: this.players.map((player) => player.getId()),
-      table: this.table,
       currentTurnIndex: this.currentTurnIndex,
-      scores: this.scores,
-      roundHistory: this.roundHistory,
-      temporaryCaptures: this.temporaryCaptures,
+      players: this.players.map((player) => player.getGameState()),
+      table: this.table,
+      myHand: this.players.find((player) => player.getId() === forPlayerId)?.getHand() || [],
     };
   }
-
-  // // Event Handlers
-  // private handleTurnTimeout(): void {
-  //   // Auto-play or penalize player
-  //   this.nextTurn();
-  // }
-
-  // private endRound(): void {
-  //   this.calculateScores();
-  //   this.roundHistory.push(this.createRoundResult());
-
-  //   if (this.isGameOver()) {
-  //     this.endGame();
-  //   } else {
-  //     this.currentRound++;
-  //     this.currentMonth = (this.currentMonth % 12) + 1;
-  //     this.initializeDeck();
-  //     this.dealCards();
-  //     this.startTurn();
-  //   }
-  // }
-
-  // private isGameOver(): boolean {
-  //   const winningScore = this.settings.pointsToWin;
-  //   return (
-  //     Array.from(this.scores.values()).some((score) => score >= winningScore) ||
-  //     this.currentRound >= this.settings.maxRounds
-  //   );
-  // }
 
   getId(): string {
     return this.id;

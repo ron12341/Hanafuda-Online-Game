@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { HanafudaCard } from "./card.interface";
+import { HanafudaCard } from "@core/Card";
 import { PlayerStatus } from "./player.interface";
 import { LobbyStateDTO } from "./dtos/LobbyState.dto";
 import { PlayerStateDTO } from "./dtos/PlayerState.dto";
@@ -9,7 +9,6 @@ import { GameStateDTO } from "./game.interface";
 
 export interface ClientToServerEvents {
   "join-game": (gameId: string, callback: (success: boolean) => void) => void;
-  "play-card": (cards: HanafudaCard[], callback: (success: boolean) => void) => void;
   "create-room": (
     data: {
       roomName: string;
@@ -41,6 +40,10 @@ export interface ClientToServerEvents {
   "ready-change": (data: { isReady: boolean }) => void;
   "request-player-state": (player: Player) => void;
   "register-player": (username: string, callback: (response: { success: boolean; error?: string }) => void) => void;
+
+  "request-game-state": (data: { gameId: string }) => void;
+  "start-game": () => void;
+  "play-card": (data: { gameId: string; playerId: string; cardId: string; targetCardId: string }) => void;
 }
 
 export interface ServerToClientEvents {
@@ -101,11 +104,16 @@ export interface ServerToClientEvents {
   "game-started": (data: { gameId: string }) => void;
   "game-state": (data: { state: GameStateDTO }) => void;
 
-  // Game Events
+  // Room Events
   "player-joined": (playerId: string) => void;
   "player-left": (playerId: string) => void;
   "invalid-move": (message: string) => void;
   "player-state": (player: PlayerStateDTO) => void;
+
+  // In Game Events
+  "play-card-error": (data: { error: string }) => void;
+  "play-card-success": (data: { success: boolean }) => void;
+  "player-played-card": (data: { playerId: string; handCard: HanafudaCard; targetCard: HanafudaCard }) => void;
 
   // Utility Events
   pong: () => void;
