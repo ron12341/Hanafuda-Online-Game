@@ -10,18 +10,14 @@ export default function RoomPage() {
   const { player, setIsReady } = usePlayer();
   const { socket, isConnected, emitSafe } = useSocket();
   const {
-    id,
-    name,
-    creatorId,
-    players,
-    settings,
-    isLoading,
-    fetchRoomData,
+    room,
+
+    //actions
+    clearErrors,
     leaveRoom,
     changeReady,
-    isOperating,
-    operationError,
-    clearErrors,
+    fetchRoomData,
+    startGame,
   } = useRoom();
 
   const [localError, setLocalError] = useState("");
@@ -40,6 +36,12 @@ export default function RoomPage() {
     // Fetch room data
     fetchRoomData(roomId);
   }, [isConnected, roomId, player.roomId, navigate]);
+
+  useEffect(() => {
+    if (room.status === "playing") {
+      navigate(`/game/${room.id}`);
+    }
+  }, [room.status]);
 
   const handleToggleReady = async () => {
     console.log("Toggling ready: ", player.isReady);
@@ -64,7 +66,7 @@ export default function RoomPage() {
   };
 
   const handleStartGame = () => {
-    emitSafe("game-start");
+    startGame();
   };
 
   const handleClearErrors = () => {
@@ -104,8 +106,8 @@ export default function RoomPage() {
     );
   }
 
-  const allPlayersReady = players.every((p) => p.isReady) && players.length > 0;
-  const isRoomOwner = player.playerId === creatorId;
+  const allPlayersReady = room.players.every((p) => p.isReady) && room.players.length > 0;
+  const isRoomOwner = player.playerId === room.creatorId;
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-6">
@@ -113,25 +115,25 @@ export default function RoomPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 p-4 bg-white rounded-lg shadow-md">
           <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Room: {name || "Unnamed Room"}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Room: {room.name || "Unnamed Room"}</h1>
             <p className="text-gray-600 text-sm mt-1">
-              Room ID: {id}
+              Room ID: {room.id}
               {isRoomOwner && " • You are the room owner"}
             </p>
           </div>
           <button
             onClick={handleLeaveRoom}
-            disabled={isOperating}
+            disabled={room.isOperating}
             className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            {isOperating ? "Leaving..." : "Leave Room"}
+            {room.isOperating ? "Leaving..." : "Leave Room"}
           </button>
         </div>
 
         {/* Error Messages */}
-        {(localError || operationError) && (
+        {(localError || room.operationError) && (
           <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-md flex justify-between items-center">
-            <span>{localError || operationError}</span>
+            <span>{localError || room.operationError}</span>
             <button onClick={handleClearErrors} className="text-red-800 hover:text-red-900 font-bold">
               ×
             </button>
@@ -139,7 +141,7 @@ export default function RoomPage() {
         )}
 
         {/* Loading State */}
-        {isLoading && (
+        {room.isLoading && (
           <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 text-blue-700 rounded-r-md">
             Loading room data...
           </div>
@@ -148,12 +150,12 @@ export default function RoomPage() {
         {/* Players Section */}
         <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            Players ({players.length || 0}/{settings.maxPlayers})
+            Players ({room.players.length || 0}/{room.settings.maxPlayers})
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {players.length > 0 ? (
-              players.map((roomPlayer) => (
+            {room.players.length > 0 ? (
+              room.players.map((roomPlayer) => (
                 <div
                   key={roomPlayer.id}
                   className={`flex items-center justify-between p-4 rounded-lg border-l-4 ${
@@ -183,24 +185,24 @@ export default function RoomPage() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center p-6 bg-white rounded-lg shadow-md">
           <button
             onClick={handleToggleReady}
-            disabled={isOperating}
+            disabled={room.isOperating}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
               player.isReady ? "bg-gray-500 text-white hover:bg-gray-600" : "bg-green-500 text-white hover:bg-green-600"
             } disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed`}
           >
-            {isOperating ? "..." : player.isReady ? "Mark as Not Ready" : "Mark as Ready"}
+            {room.isOperating ? "..." : player.isReady ? "Mark as Not Ready" : "Mark as Ready"}
           </button>
 
           {/* Start Game Button - Only for room owner */}
           {isRoomOwner && (
             <button
               onClick={handleStartGame}
-              disabled={!allPlayersReady || isOperating || players.length < settings.minPlayers}
+              disabled={!allPlayersReady || room.isOperating || room.players.length < room.settings.minPlayers}
               className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                 allPlayersReady ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-300 text-gray-500"
               } disabled:cursor-not-allowed`}
             >
-              {isOperating ? "Starting..." : "Start Game"}
+              {room.isOperating ? "Starting..." : "Start Game"}
             </button>
           )}
         </div>
