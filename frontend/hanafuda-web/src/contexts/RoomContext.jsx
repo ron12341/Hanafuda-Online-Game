@@ -14,6 +14,7 @@ const roomReducer = (state, action) => {
         players: action.players || state.players,
         creatorId: action.creatorId || state.creatorId,
         settings: action.settings || state.settings,
+        status: action.status || state.status,
         error: null, // Clear errors on successful update
       };
 
@@ -53,6 +54,13 @@ const roomReducer = (state, action) => {
       return {
         ...state,
         players: action.players || [],
+        error: null, // Clear errors on successful update
+      };
+
+    case "GAME_STARTED":
+      return {
+        ...state,
+        status: "playing",
         error: null, // Clear errors on successful update
       };
 
@@ -121,6 +129,7 @@ export const RoomProvider = ({ children }) => {
     name: "",
     creatorId: "",
     settings: { maxPlayers: 4, totalRounds: 3, visibility: "public", minPlayers: 3 },
+    status: "waiting",
     isLoading: false,
     isOperating: false,
     error: null,
@@ -128,7 +137,7 @@ export const RoomProvider = ({ children }) => {
   });
 
   const { emitSafe, socket } = useSocket();
-  const { playerId, setRoomId } = usePlayer();
+  const { playerId, setRoomId, setGameId } = usePlayer();
 
   // Socket event listeners
   useEffect(() => {
@@ -143,6 +152,7 @@ export const RoomProvider = ({ children }) => {
         players: roomData.players,
         creatorId: roomData.creatorId,
         settings: roomData.settings,
+        status: roomData.status,
       });
     };
 
@@ -181,12 +191,22 @@ export const RoomProvider = ({ children }) => {
       });
     };
 
+    const handleGameStarted = (gameData) => {
+      console.log("Game started", gameData);
+      setGameId(gameData.id);
+      dispatch({
+        type: "GAME_STARTED",
+      });
+    };
+
     socket.on("room-state", handleRoomState);
     socket.on("room-players-update", handleRoomPlayersUpdate);
     socket.on("room-state-error", handleRoomOperationError);
     socket.on("player-joined-room", handlePlayerJoined);
     socket.on("player-left-room", handlePlayerLeft);
     socket.on("player-ready-changed", handlePlayerReady);
+
+    socket.on("game-started", handleGameStarted);
 
     return () => {
       socket.off("room-state", handleRoomState);
@@ -196,7 +216,7 @@ export const RoomProvider = ({ children }) => {
       socket.off("player-left-room", handlePlayerLeft);
       socket.off("player-ready-changed", handlePlayerReady);
     };
-  }, [socket]); // No state dependencies!
+  }, [socket]);
 
   const fetchRoomData = useCallback(
     (roomId) => {
@@ -275,22 +295,54 @@ export const RoomProvider = ({ children }) => {
         socket.once("ready-change-success", handleSucess);
         socket.once("ready-change-error", handleError);
 
-        socket.emit("ready-change", { isReady: isReady });
+        emitSafe("ready-change", { isReady: isReady });
       });
     },
     [emitSafe, socket]
   );
+
+  const startGame = useCallback(() => {
+    console.log("Starting game");
+
+    console.log(socket);
+
+    if (!socket) {
+      dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
+      return;
+    }
+
+    dispatch({ type: "ROOM_OPERATION_START" });
+
+    return new Promise((resolve) => {
+      const handleError = (data) => {
+        cleanupListeners();
+        dispatch({ type: "ROOM_OPERATION_ERROR", error: data.error });
+        resolve({ success: false, error: data.error });
+      };
+
+      const cleanupListeners = () => {
+        socket.off("start-game-error", handleError);
+      };
+
+      socket.once("start-game-error", handleError);
+      emitSafe("start-game");
+    });
+  }, [emitSafe, socket]);
 
   const clearErrors = useCallback(() => {
     dispatch({ type: "CLEAR_ERRORS" });
   }, []);
 
   const value = {
-    ...state,
+    room: {
+      ...state,
+    },
+
     fetchRoomData,
     leaveRoom,
     clearErrors,
     changeReady,
+    startGame,
   };
 
   return <RoomStateContext.Provider value={value}>{children}</RoomStateContext.Provider>;

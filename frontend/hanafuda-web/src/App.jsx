@@ -1,12 +1,16 @@
 import { SocketProvider } from "./contexts/SocketContext";
 import { PlayerProvider } from "./contexts/PlayerContext";
 import { LobbyProvider } from "./contexts/LobbyContext";
+import { GameProvider } from "./contexts/GameContext";
 import Connect from "./pages/Connect";
 import LobbyPage from "./pages/LobbyPage";
 import RoomPage from "./pages/RoomPage";
-import { useSocket } from "./contexts/SocketContext";
+import GamePage from "./pages/GamePage";
 import { Routes, Route, BrowserRouter } from "react-router-dom";
 import { RoomProvider } from "./contexts/RoomContext";
+
+import GameDemo from "./pages/GameDemo";
+import TailwindTest from "./TailwindTest";
 
 function AppContent() {
   return (
@@ -15,6 +19,9 @@ function AppContent() {
         <Route path="/" element={<Connect />} />
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/room/:roomId" element={<RoomPage />} />
+        <Route path="/game/:gameId" element={<GamePage />} />
+        <Route path="/game-demo" element={<GameDemo />} />
+        <Route path="/test" element={<TailwindTest />} />
       </Routes>
     </BrowserRouter>
   );
@@ -26,7 +33,9 @@ function App() {
       <SocketProvider>
         <LobbyProvider>
           <RoomProvider>
-            <AppContent />
+            <GameProvider>
+              <AppContent />
+            </GameProvider>
           </RoomProvider>
         </LobbyProvider>
       </SocketProvider>
