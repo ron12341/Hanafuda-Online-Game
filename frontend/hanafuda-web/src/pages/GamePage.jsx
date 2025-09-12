@@ -16,142 +16,86 @@ export default function GamePage() {
   const [selectedHandCard, setSelectedHandCard] = useState(null);
   const [filteredTableCards, setFilteredTableCards] = useState([]);
 
+  const [notification, setNotification] = useState("ROUND ENDED!");
+
   const navigate = useNavigate();
 
   const [gameData, setGameData] = useState({
-    players: [
-      { id: 1, name: "You", cards: 8, captured: 5, isCurrent: true, score: 45 },
-      { id: 2, name: "Player 2", cards: 8, captured: 3, isCurrent: false, score: 30 },
-      { id: 3, name: "Player 3", cards: 8, captured: 4, isCurrent: false, score: 25 },
-      { id: 4, name: "Player 4", cards: 8, captured: 2, isCurrent: false, score: 20 },
-    ],
-    playerHand: Array(8)
-      .fill(null)
-      .map((_, i) => ({
-        id: i + 1,
-        type: ["red", "blue", "green", "yellow"][i % 4],
-        name: `Card ${i + 1}`,
-      })),
-    tableCards: Array(6)
-      .fill(null)
-      .map((_, i) => ({
-        id: i + 20,
-        type: ["purple", "orange", "teal", "pink"][i % 4],
-        name: `Table Card ${i + 1}`,
-      })),
-    flippedCard: {
-      id: 30,
-      type: "special",
-      name: "Flipped Card",
-      isFlipped: true,
-    },
     deckCount: 24,
     round: 10,
     status: "Your Turn",
   });
 
-  const getColor = (type) => {
-    const colors = {
-      red: "#e74c3c",
-      blue: "#3498db",
-      green: "#2ecc71",
-      yellow: "#f1c40f",
-      purple: "#9b59b6",
-      orange: "#e67e22",
-      teal: "#1abc9c",
-      pink: "#e91e63",
-      special: "#8e44ad",
-    };
-    return colors[type] || "#95a5a6";
-  };
+  // Check if flipped card should be automatically selected
+  const shouldAutoSelectFlippedCard = gameState.flippedCard && myTurn;
+  const handCardsDisabled = shouldAutoSelectFlippedCard;
 
-  const Card = ({
-    card,
-    onClick,
-    selected = false,
-    size = "medium",
-    flipped = false,
-    src,
-    alt,
-    isDisabled = false,
-    isSelectable = false,
-    cardType = "hand",
-  }) => {
-    // Define size classes explicitly for Tailwind
-    let width, height;
-
-    if (size === "large") {
-      width = "w-32"; // 128px
-      height = "h-48"; // 192px
-    } else if (size === "small") {
-      width = "w-16"; // 64px
-      height = "h-24"; // 96px
-    } else {
-      width = "w-24"; // 96px
-      height = "h-36"; // 144px
+  useEffect(() => {
+    if (shouldAutoSelectFlippedCard) {
+      setSelectedHandCard(gameState.flippedCard);
     }
+  }, [shouldAutoSelectFlippedCard, gameState.flippedCard]);
 
-    const shouldShowPointer = !isDisabled && (cardType === "hand" || (cardType === "table" && isSelectable));
+  const Card = ({ card, onClick, selected = false, size = "medium", cardType = "hand", src, alt, isDisabled = false, isSelectable = false }) => {
+    // Define size classes
+    const sizeClasses = {
+      large: {
+        width: "w-24",
+        height: "h-48",
+      },
+      medium: {
+        width: "w-20",
+        height: "h-40",
+      },
+      small: {
+        width: "w-16",
+        height: "h-32",
+      },
+    };
 
-    if (src && alt) {
+    const { width, height } = sizeClasses[size] || sizeClasses.medium;
+
+    // Determine card type behavior
+    const isHandCard = cardType === "hand";
+    const isFlippedCard = cardType === "flipped" || !card;
+    const isTableCard = cardType === "table";
+
+    // Determine interactivity - hand cards are disabled when flipped card exists
+    const shouldShowPointer = !isDisabled && (isHandCard || (isTableCard && isSelectable));
+    const isInteractive = shouldShowPointer && onClick;
+
+    // Handle image cards (if card exists and has image)
+    if (card && src && alt) {
       return (
         <div
-          className={`rounded-lg shadow-lg flex flex-col justify-between p-2 transition-all duration-200 ${
-            selected
-              ? "ring-4 ring-yellow-400 transform -translate-y-2"
-              : shouldShowPointer
-              ? "cursor-pointer hover:-translate-y-1"
-              : ""
-          } ${width} ${height}} ${isDisabled ? "opacity-50" : ""}`}
-          onClick={shouldShowPointer ? onClick : undefined}
+          className={`
+          rounded-lg shadow-lg flex flex-col justify-between transition-all duration-200
+          ${selected ? "ring-4 ring-yellow-400 transform -translate-y-2" : ""}
+          ${shouldShowPointer ? "cursor-pointer hover:-translate-y-1" : ""}
+          ${width} ${height}
+          ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}
+          ${handCardsDisabled && isHandCard ? "opacity-70 cursor-not-allowed" : ""}
+        `}
+          onClick={isInteractive ? onClick : undefined}
         >
-          <img src={src} alt={alt} />
+          <img src={src} alt={alt} className="w-full h-full object-contain rounded-md" />
         </div>
       );
     }
 
-    return (
-      <div
-        className={`rounded-lg shadow-lg flex flex-col justify-between p-2 cursor-pointer transition-all duration-200 ${
-          selected ? "ring-4 ring-yellow-400 transform -translate-y-2" : "hover:-translate-y-1"
-        } ${width} ${height} ${flipped ? "border-2 border-dashed border-yellow-400" : ""}`}
-        style={{ backgroundColor: flipped ? "#2c3e50" : getColor(card.type) }}
-        onClick={onClick}
-      >
-        {flipped ? (
-          <div className="text-center text-white font-semibold text-sm">Flipped</div>
-        ) : (
-          <>
-            <div className="text-center text-white font-semibold text-sm">{card.name}</div>
-            <div className="text-center text-white text-xs">{card.type}</div>
-          </>
-        )}
-      </div>
-    );
-  };
-
-  const handleSelectHandCard = (handCard) => {
-    if (handCard === selectedHandCard) {
-      setSelectedHandCard(null);
-      setFilteredTableCards([]);
-    } else {
-      setSelectedHandCard(handCard);
-      setFilteredTableCards(gameState.table.filter((card) => isSameMonth(card, handCard)));
-    }
-  };
-
-  const handleCaptureCard = async (targetCard) => {
-    if (isSameMonth(selectedHandCard, targetCard)) {
-      const result = await playCard(gameState.id, player.playerId, selectedHandCard.id, targetCard.id);
-
-      if (!result.success) {
-        setError(result.error);
-      } else {
-        console.log("Played card:", result.handCard, result.tableCard);
-      }
-
-      setSelectedHandCard(null);
-      setFilteredTableCards([]);
+    // Handle empty flipped card (when card is undefined)
+    if (isFlippedCard) {
+      return (
+        <div
+          className={`
+          ${width} ${height} pt-2 pb-2 ml-auto mr-auto
+        `}
+        >
+          <div className="w-full h-full bg-gray-800 rounded-md flex items-center justify-center shadow-lg transition-all duration-200 border-2 border-dashed border-yellow-400">
+            <p>Empty</p>
+          </div>
+        </div>
+      );
     }
   };
 
@@ -159,13 +103,99 @@ export default function GamePage() {
     return card1.month === card2.month;
   };
 
+  const handleSelectHandCard = handCard => {
+    if (handCardsDisabled && myTurn) return; // Prevent selection when hand is disabled
+
+    if (handCard === selectedHandCard) {
+      setSelectedHandCard(null);
+    } else {
+      setSelectedHandCard(handCard);
+    }
+  };
+
+  const handleCaptureCard = async targetCard => {
+    if (!myTurn) return;
+    if (isSameMonth(selectedHandCard, targetCard)) {
+      let result;
+      if (!gameState?.flippedCard) {
+        result = await playCard({
+          gameId: gameState.id,
+          playerId: player.playerId,
+          cardId: selectedHandCard.id,
+          targetCardId: targetCard.id,
+          action: "capture",
+          cardType: "hand",
+        });
+      } else {
+        result = await playCard({
+          gameId: gameState.id,
+          playerId: player.playerId,
+          cardId: selectedHandCard.id,
+          targetCardId: targetCard.id,
+          action: "capture",
+          cardType: "flipped",
+        });
+      }
+
+      if (!result.success) {
+        setError(result.error);
+      }
+
+      setSelectedHandCard(null);
+    }
+  };
+
+  const handleDiscardCard = async card => {
+    if (!myTurn) return;
+    if (filteredTableCards.length > 0) return; // cannot discard if there are filtered table cards
+
+    let result;
+    if (!gameState?.flippedCard) {
+      result = await playCard({ gameId: gameState.id, playerId: player.playerId, cardId: selectedHandCard.id, action: "discard", cardType: "hand" });
+    } else {
+      result = await playCard({
+        gameId: gameState.id,
+        playerId: player.playerId,
+        cardId: selectedHandCard.id,
+        action: "discard",
+        cardType: "flipped",
+      });
+    }
+
+    if (!result.success) {
+      setError(result.error);
+    }
+
+    setSelectedHandCard(null);
+  };
+
+  useEffect(() => {
+    const filterTableCards = () => {
+      if (!selectedHandCard) {
+        setFilteredTableCards([]);
+        return;
+      }
+      console.log("SELECTED HAND CARD", selectedHandCard);
+      console.log("TABLE CARDS", gameState.table);
+      setFilteredTableCards(gameState.table.filter(card => isSameMonth(card, selectedHandCard)));
+    };
+
+    filterTableCards();
+  }, [selectedHandCard]);
+
   useEffect(() => {
     console.log("Game page mounted");
 
     const loadGame = async () => {
       try {
         setLoading(true);
-        await fetchGameData(gameId);
+        const result = await fetchGameData(gameId);
+
+        if (result.success) {
+          const data = result.data;
+          setMyTurn(data.players?.[data.currentTurnIndex]?.id === player.playerId);
+          console.log(data.players?.[data.currentTurnIndex]?.id, player.playerId);
+        }
       } catch (err) {
         setError("Failed to load game");
         console.error("Game load error:", err);
@@ -182,10 +212,14 @@ export default function GamePage() {
   useEffect(() => {
     if (!player || !gameState) return;
 
-    setMyTurn(gameState.players?.[gameState.currentTurnIndex]?.id === player.id);
+    setMyTurn(isMyTurn());
   }, [gameState?.currentTurnIndex, player?.id]);
 
-  if (loading) {
+  const isMyTurn = () => {
+    return gameState.players?.[gameState.currentTurnIndex]?.id === player.playerId;
+  };
+
+  if (gameState.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="text-center">
@@ -201,10 +235,7 @@ export default function GamePage() {
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="text-center">
           <p className="text-red-500 text-lg mb-4">{error}</p>
-          <button
-            onClick={() => navigate("/lobby")}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
+          <button onClick={() => navigate("/lobby")} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
             Back to Lobby
           </button>
         </div>
@@ -217,10 +248,7 @@ export default function GamePage() {
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="text-center">
           <p className="text-red-500 text-lg mb-4">Game not found</p>
-          <button
-            onClick={() => navigate("/lobby")}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
+          <button onClick={() => navigate("/lobby")} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
             Back to Lobby
           </button>
         </div>
@@ -230,15 +258,21 @@ export default function GamePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 to-purple-900 text-white p-4 flex flex-col">
+      {/* Notification */}
+      {notification && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-black px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce">
+          {notification}
+        </div>
+      )}
+
       {/* Top Section */}
       <div className="bg-black bg-opacity-70 rounded-xl p-4 mb-4 shadow-lg">
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div className="text-center md:text-left mb-4 md:mb-0">
             <div className="flex flex-wrap items-center gap-4 mt-2">
-              <p className="text-yellow-300">
-                {gameState.players[gameState.currentTurnIndex]?.name ?? "Unknown"}'s Turn
-              </p>
+              <p className="text-yellow-300">{gameState.players[gameState.currentTurnIndex]?.name ?? "Unknown"}'s Turn</p>
               <p className="text-blue-300">Round: {gameState.currentRound}</p>
+              {handCardsDisabled && <p className="text-red-300 animate-pulse">⚠️ Flipped card must be played first</p>}
             </div>
           </div>
 
@@ -281,12 +315,10 @@ export default function GamePage() {
 
       {/* Players Captured Cards info */}
       <div className="bg-black bg-opacity-50 rounded-xl p-3 mb-4 flex justify-around">
-        {gameState.players.map((gamePlayer) => (
+        {gameState.players.map(gamePlayer => (
           <div
             key={gamePlayer.id}
-            className={`text-center px-4 py-2 rounded-lg ${
-              gamePlayer.id === player.playerId ? "bg-blue-700" : "bg-gray-800"
-            }`}
+            className={`text-center px-4 py-2 rounded-lg ${gamePlayer.id === player.playerId ? "bg-blue-700" : "bg-gray-800"}`}
           >
             <div className="font-semibold">{gamePlayer.name}</div>
             <div className="text-sm">Captured: {gamePlayer.captured.length}</div>
@@ -301,20 +333,26 @@ export default function GamePage() {
           <div className="min-w-[350px] bg-black bg-opacity-30 rounded-lg p-4 flex items-center justify-evenly">
             <div className="text-center">
               <h3 className="text-yellow-300 font-semibold mb-2">Flipped Card</h3>
-              <Card
-                card={gameData.flippedCard}
-                flipped={true}
-                // onClick={() => handleCardSelect(gameData.flippedCard)}
-                selected={selectedHandCard?.id === gameData.flippedCard.id}
-                size="medium"
-              />
+
+              {gameState.flippedCard ? (
+                <Card
+                  card={gameState.flippedCard}
+                  selected={selectedHandCard?.id === gameState.flippedCard.id}
+                  size="medium"
+                  src={gameState.flippedCard.image}
+                  alt={gameState.flippedCard.name}
+                  cardType="flipped"
+                />
+              ) : (
+                <Card card={undefined} size="medium" cardType="flipped" />
+              )}
             </div>
 
             <div className="text-center">
               <h2 className="text-yellow-200 font-semibold mb-4">Deck</h2>
               <div className="relative">
                 <div className="w-24 h-36 rounded-lg bg-gray-800 shadow-xl flex items-center justify-center">
-                  <span className="text-white text-xl">{gameData.deckCount}</span>
+                  <span className="text-white text-xl">{gameState.deckSize}</span>
                 </div>
               </div>
             </div>
@@ -322,23 +360,28 @@ export default function GamePage() {
 
           {/* Table Cards */}
           <div className="flex-1 bg-black bg-opacity-30 rounded-lg p-4 flex flex-wrap justify-center items-center gap-4">
-            {gameState.table.map((card) => (
-              <Card
-                key={card.id}
-                card={card}
-                onClick={() => handleCaptureCard(card)}
-                selected={selectedHandCard?.id === card.id}
-                size="medium"
-                src={card.image}
-                alt={card.name}
-                isDisabled={selectedHandCard && !isSameMonth(selectedHandCard, card)}
-                isSelectable={!!selectedHandCard}
-                cardType="table"
-              />
-            ))}
+            {gameState.table.map(
+              card => (
+                console.log("SELECTED HAND CARD", selectedHandCard),
+                card && (
+                  <Card
+                    key={card.id}
+                    card={card}
+                    onClick={() => handleCaptureCard(card)}
+                    selected={selectedHandCard?.id === card.id}
+                    size="medium"
+                    src={card.image}
+                    alt={card.name}
+                    isDisabled={selectedHandCard && !isSameMonth(selectedHandCard, card)}
+                    isSelectable={!!selectedHandCard}
+                    cardType="table"
+                  />
+                )
+              )
+            )}
           </div>
 
-          {selectedHandCard && filteredTableCards.length <= 0 && (
+          {selectedHandCard && filteredTableCards.length <= 0 && myTurn && (
             <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 z-50">
               <button
                 onClick={() => handleDiscardCard(selectedHandCard)}
@@ -352,19 +395,53 @@ export default function GamePage() {
       </div>
 
       {/* My Cards */}
-      <div className="bg-black bg-opacity-70 rounded-xl p-4 shadow-lg">
+      {/* <div className="bg-black bg-opacity-70 rounded-xl p-4 shadow-lg">
         <div className="flex flex-col md:flex-row items-center">
           <div className="flex-1">
             <h2 className="text-green-300 font-semibold mb-3 text-center md:text-left">Your Hand</h2>
             <div className="flex flex-wrap justify-center gap-3">
-              {gameState.myHand.map((card) => (
+              {gameState.myHand.map(card => (
                 <Card
                   key={card.id}
+                  card={card}
                   onClick={() => handleSelectHandCard(card)}
                   selected={selectedHandCard?.id === card.id}
                   size="medium"
                   src={card.image}
                   alt={card.name}
+                  cardType="hand"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div> */}
+
+      <div className="bg-black bg-opacity-70 rounded-xl p-4 shadow-lg">
+        <div className="flex flex-col md:flex-row items-center">
+          <div className="flex-1">
+            <h2 className="text-green-300 font-semibold mb-3 text-center md:text-left">
+              {myTurn ? (
+                <>
+                  Your Turn
+                  {handCardsDisabled && <span className="text-red-300 text-sm ml-2">(Play flipped card first)</span>}
+                </>
+              ) : (
+                "Waiting for your turn..."
+              )}
+            </h2>
+            <div className="flex flex-wrap justify-center gap-3">
+              {gameState.myHand.map(card => (
+                <Card
+                  key={card.id}
+                  card={card}
+                  onClick={() => handleSelectHandCard(card)}
+                  selected={selectedHandCard?.id === card.id}
+                  size="medium"
+                  src={card.image}
+                  alt={card.name}
+                  cardType="hand"
+                  isDisabled={handCardsDisabled} // Disable all hand cards
                 />
               ))}
             </div>

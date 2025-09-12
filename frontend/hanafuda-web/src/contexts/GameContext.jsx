@@ -16,6 +16,9 @@ const gameReducer = (state, action) => {
         table: action.table || state.table,
         currentTurnIndex: action.currentTurnIndex || state.currentTurnIndex,
         myHand: action.myHand || state.myHand,
+        flippedCard: action.flippedCard || state.flippedCard,
+        deckSize: action.deckSize || state.deckSize,
+        isOperating: false,
         error: null,
       };
 
@@ -44,17 +47,75 @@ const gameReducer = (state, action) => {
     case "REMOVE_CARD_FROM_HAND":
       return {
         ...state,
-        myHand: state.myHand.filter((card) => card.id !== action.handCardId),
+        myHand: state.myHand.filter(card => card.id !== action.handCardId),
         isOperating: false,
         operationError: null,
         error: null,
       };
 
-    case "Player_PLAYED_CARD":
+    case "PLAYER_CAPTURED_CARD":
+      console.log("CAPTURING CARD", action);
+      const updatedTable = state.table.filter(card => card.id !== action.targetCard.id);
+      const updatedPlayers = state.players.map(player => {
+        if (player.id === action.playerId) {
+          return {
+            ...player,
+            captured: [...player.captured, action.handCard, action.targetCard],
+          };
+        }
+        return player;
+      });
+
       return {
         ...state,
-        table: action.table,
-        players: action.players,
+        table: updatedTable,
+        players: updatedPlayers,
+        flippedCard: action.flippedCard,
+        isOperating: false,
+        operationError: null,
+        error: null,
+      };
+
+    case "PLAYER_DISCARDED_CARD":
+      console.log("DISCARDING CARD", action);
+      return {
+        ...state,
+        table: [...state.table, action.handCard],
+        flippedCard: action.flippedCard,
+        isOperating: false,
+        operationError: null,
+        error: null,
+      };
+
+    case "PLAYER_CAPTURED_FLIPPED_CARD":
+      console.log("CAPTURING FLIPPED CARD", action);
+      const targetCard = state.table.find(card => card.id === action.targetCardId);
+      return {
+        ...state,
+        table: state.table.filter(card => card.id !== action.targetCardId),
+        players: state.players.map(player => {
+          if (player.id === action.playerId) {
+            return {
+              ...player,
+              captured: [...player.captured, targetCard, action.flippedCard],
+            };
+          }
+          return player;
+        }),
+        currentTurnIndex: action.currentTurnIndex,
+        flippedCard: undefined,
+        isOperating: false,
+        operationError: null,
+        error: null,
+      };
+
+    case "PLAYER_DISCARDED_FLIPPED_CARD":
+      console.log("DISCARDING FLIPPED CARD", action);
+      return {
+        ...state,
+        table: [...state.table, action.flippedCard],
+        currentTurnIndex: action.currentTurnIndex,
+        flippedCard: undefined,
         isOperating: false,
         operationError: null,
         error: null,
@@ -69,6 +130,8 @@ const gameReducer = (state, action) => {
         table: [],
         currentTurnIndex: 0,
         myHand: [],
+        flippedCard: null,
+        deckSize: 0,
         error: null,
         isLoading: false,
         operationError: null,
@@ -89,6 +152,8 @@ export const GameProvider = ({ children }) => {
     table: [],
     currentTurnIndex: 0,
     myHand: [],
+    flippedCard: null,
+    deckSize: 0,
     error: null,
     isLoading: false,
     operationError: null,
@@ -102,65 +167,105 @@ export const GameProvider = ({ children }) => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleGameState = (gameData) => {
-      dispatch({
-        type: "UPDATE_GAME_STATE",
-        id: gameData.state.id,
-        roomId: gameData.state.roomId,
-        players: gameData.state.players,
-        currentRound: gameData.state.currentRound,
-        table: gameData.state.table,
-        currentTurnIndex: gameData.state.currentTurnIndex,
-        myHand: gameData.state.myHand,
-      });
-
-      console.log("Game state updated", state);
-    };
-
-    const handlePlayerPlayedCard = (data) => {
+    const handlePlayerPlayedCard = data => {
       console.log("Player played card", data);
       console.log("Current state", state);
-      const updatedTable = state.table.filter((card) => card.id !== data.targetCard.id);
-      const updatedPlayers = state.players.map((player) => {
-        if (player.id === data.playerId) {
-          return {
-            ...player,
-            captured: [...player.captured, data.handCard, data.targetCard],
-          };
-        }
-        return player;
-      });
 
-      console.log("Updated table", updatedTable);
-      console.log("Updated players", updatedPlayers);
-
-      dispatch({
-        type: "Player_PLAYED_CARD",
-        table: updatedTable,
-        players: updatedPlayers,
-      });
+      if (data.action === "capture") {
+        dispatch({
+          type: "PLAYER_CAPTURED_CARD",
+          playerId: data.playerId,
+          handCard: data.handCard,
+          targetCard: data.targetCard,
+          flippedCard: data.flippedCard,
+        });
+      } else if (data.action === "discard") {
+        dispatch({
+          type: "PLAYER_DISCARDED_CARD",
+          handCard: data.handCard,
+          flippedCard: data.flippedCard,
+        });
+      }
     };
 
-    socket.on("game-state", handleGameState);
+    const handlePlayerPlayedFlippedCard = data => {
+      console.log("Player played flipped card", data);
+
+      if (data.action === "capture") {
+        dispatch({
+          type: "PLAYER_CAPTURED_FLIPPED_CARD",
+          playerId: data.playerId,
+          targetCardId: data.targetCardId,
+          currentTurnIndex: data.currentTurnIndex,
+          flippedCard: state.flippedCard,
+        });
+      } else if (data.action === "discard") {
+        dispatch({
+          type: "PLAYER_DISCARDED_FLIPPED_CARD",
+          currentTurnIndex: data.currentTurnIndex,
+          flippedCard: state.flippedCard,
+        });
+      }
+    };
+
     socket.on("player-played-card", handlePlayerPlayedCard);
+    socket.on("player-played-flipped-card", handlePlayerPlayedFlippedCard);
     return () => {
-      socket.off("game-state", handleGameState);
+      socket.off("player-played-card", handlePlayerPlayedCard);
+      socket.off("player-played-flipped-card", handlePlayerPlayedFlippedCard);
     };
   }, [socket, state]);
 
   const fetchGameData = useCallback(
-    (gameId) => {
+    gameId => {
       if (!socket) {
         dispatch({ type: "GAME_OPERATION_ERROR", error: "No socket connection" });
         return;
       }
-      emitSafe("request-game-state", { gameId });
+
+      return new Promise(resolve => {
+        const handleSuccess = gameData => {
+          console.log("Fetched game data", gameData);
+          cleanupListeners();
+          dispatch({
+            type: "UPDATE_GAME_STATE",
+            id: gameData.state.id,
+            roomId: gameData.state.roomId,
+            players: gameData.state.players,
+            currentRound: gameData.state.currentRound,
+            table: gameData.state.table,
+            currentTurnIndex: gameData.state.currentTurnIndex,
+            myHand: gameData.state.myHand,
+            flippedCard: gameData.state.flippedCard,
+            deckSize: gameData.state.deckSize,
+          });
+          resolve({ success: true, data: gameData.state });
+        };
+
+        const handleError = data => {
+          console.log("Error fetching game data", data);
+          cleanupListeners();
+          resolve({ success: false, error: data.error });
+        };
+
+        const cleanupListeners = () => {
+          socket.off("game-state", handleSuccess);
+          socket.off("game-state-error", handleError);
+        };
+
+        socket.on("game-state", handleSuccess);
+        socket.on("game-state-error", handleError);
+
+        emitSafe("request-game-state", { gameId: gameId });
+      });
     },
     [emitSafe, socket]
   );
 
   const playCard = useCallback(
-    (gameId, playerId, cardId, targetCardId) => {
+    ({ gameId, playerId, cardId, targetCardId, action, cardType }) => {
+      console.log("PLAYING CARD", { gameId, playerId, cardId, targetCardId, action, cardType });
+
       if (!socket) {
         dispatch({ type: "GAME_OPERATION_ERROR", error: "No socket connection" });
         return;
@@ -168,7 +273,7 @@ export const GameProvider = ({ children }) => {
 
       dispatch({ type: "GAME_OPERATION_START" });
 
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         const handleSuccess = () => {
           cleanupListeners();
           dispatch({
@@ -176,9 +281,10 @@ export const GameProvider = ({ children }) => {
             handCardId: cardId,
           });
           dispatch({ type: "GAME_OPERATION_SUCCESS" });
+          resolve({ success: true, flippedCard: state.flippedCard });
         };
 
-        const handleError = (data) => {
+        const handleError = data => {
           console.log("Error playing card", data);
           cleanupListeners();
           dispatch({ type: "GAME_OPERATION_ERROR", error: data.error });
@@ -193,7 +299,11 @@ export const GameProvider = ({ children }) => {
         socket.once("play-card-success", handleSuccess);
         socket.once("play-card-error", handleError);
 
-        emitSafe("play-card", { gameId, playerId, cardId, targetCardId });
+        if (action === "capture") {
+          emitSafe("play-card", { gameId, playerId, cardId, targetCardId, action, cardType });
+        } else if (action === "discard") {
+          emitSafe("play-card", { gameId, playerId, cardId, action, cardType });
+        }
       });
     },
     [emitSafe, socket]

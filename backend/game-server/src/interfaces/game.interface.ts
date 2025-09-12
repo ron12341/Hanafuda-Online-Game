@@ -40,4 +40,26 @@ export interface GameStateDTO {
   players: PlayerGameStateDTO[];
   table: HanafudaCard[];
   myHand: HanafudaCard[];
+  flippedCard: HanafudaCard | undefined;
+  deckSize: number;
+}
+
+export interface PlayCardResult {
+  handCard: HanafudaCard;
+  targetCard: HanafudaCard;
+  flippedCard: HanafudaCard;
+}
+
+export interface DiscardCardResult {
+  handCard: HanafudaCard;
+  flippedCard: HanafudaCard;
+}
+
+export interface PlayFlippedCardResult {
+  targetCardId: string;
+  currentTurnIndex: number;
+}
+
+export interface DiscardFlippedCardResult {
+  currentTurnIndex: number;
 }

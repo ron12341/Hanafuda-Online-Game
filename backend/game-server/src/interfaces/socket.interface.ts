@@ -43,7 +43,8 @@ export interface ClientToServerEvents {
 
   "request-game-state": (data: { gameId: string }) => void;
   "start-game": () => void;
-  "play-card": (data: { gameId: string; playerId: string; cardId: string; targetCardId: string }) => void;
+  "play-card": (data: { gameId: string; playerId: string; cardId: string; targetCardId?: string; action: string; cardType: string }) => void;
+  "play-flipped-card": (data: { gameId: string; playerId: string; cardId: string; targetCardId?: string; action: string }) => void;
 }
 
 export interface ServerToClientEvents {
@@ -113,7 +114,14 @@ export interface ServerToClientEvents {
   // In Game Events
   "play-card-error": (data: { error: string }) => void;
   "play-card-success": (data: { success: boolean }) => void;
-  "player-played-card": (data: { playerId: string; handCard: HanafudaCard; targetCard: HanafudaCard }) => void;
+  "player-played-card": (data: {
+    playerId: string;
+    handCard: HanafudaCard;
+    targetCard?: HanafudaCard;
+    flippedCard: HanafudaCard;
+    action: string;
+  }) => void;
+  "player-played-flipped-card": (data: { playerId: string; action: string; targetCardId?: string; currentTurnIndex: number }) => void;
 
   // Utility Events
   pong: () => void;

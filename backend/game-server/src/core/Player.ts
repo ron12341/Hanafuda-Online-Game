@@ -114,11 +114,19 @@ export class Player {
 
   playCard(card: HanafudaCard, targetCard: HanafudaCard): void {
     // remove the card from the player's hand
-    this.gameData!.hand = this.gameData!.hand.filter((c) => c.id !== card.id);
+    this.gameData!.hand = this.gameData!.hand.filter(c => c.id !== card.id);
 
     // add the card to the table
+    this.capture(card);
+    this.capture(targetCard);
+  }
+
+  capture(card: HanafudaCard): void {
     this.gameData!.captured.push(card);
-    this.gameData!.captured.push(targetCard);
+  }
+
+  discard(card: HanafudaCard): void {
+    this.gameData!.hand = this.gameData!.hand.filter(c => c.id !== card.id);
   }
 
   getState(): PlayerStateDTO {

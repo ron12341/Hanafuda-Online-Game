@@ -9,9 +9,6 @@ import GamePage from "./pages/GamePage";
 import { Routes, Route, BrowserRouter } from "react-router-dom";
 import { RoomProvider } from "./contexts/RoomContext";
 
-import GameDemo from "./pages/GameDemo";
-import TailwindTest from "./TailwindTest";
-
 function AppContent() {
   return (
     <BrowserRouter>
@@ -20,8 +17,6 @@ function AppContent() {
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/room/:roomId" element={<RoomPage />} />
         <Route path="/game/:gameId" element={<GamePage />} />
-        <Route path="/game-demo" element={<GameDemo />} />
-        <Route path="/test" element={<TailwindTest />} />
       </Routes>
     </BrowserRouter>
   );

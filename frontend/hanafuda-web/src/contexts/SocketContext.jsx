@@ -36,6 +36,8 @@ export function SocketProvider({ children }) {
         }
 
         const newSocket = io(WEBSOCKET_URL, {
+          transports: ["websocket"],
+          timeout: 10000,
           autoConnect: false,
           reconnection: true,
           reconnectionAttempts: 5,
@@ -61,7 +63,7 @@ export function SocketProvider({ children }) {
         };
 
         // Transport-level connection error
-        const handleConnectError = (error) => {
+        const handleConnectError = error => {
           console.log("Transport connection failed: ", error);
           isConnecting.current = false;
           setConnectionError(error.message);
@@ -78,7 +80,7 @@ export function SocketProvider({ children }) {
         };
 
         // Application-level connection error
-        const handleConnectionError = (error) => {
+        const handleConnectionError = error => {
           console.log("Application connection error: ", error.error, error.details);
           isConnecting.current = false;
           setConnectionError(`${error.error}: ${error.details}`);
@@ -93,14 +95,14 @@ export function SocketProvider({ children }) {
         };
 
         // General disconnect handler
-        const handleDisconnect = (reason) => {
+        const handleDisconnect = reason => {
           console.log("Socket disconnected: ", reason);
           setIsConnected(false);
           setStatus("disconnected");
         };
 
         // Session handlers
-        const handleSessionCreated = (data) => {
+        const handleSessionCreated = data => {
           console.log("Session created: ", data);
           setSessionToken(data.sessionToken);
           setPlayerId(data.playerId);
@@ -108,7 +110,7 @@ export function SocketProvider({ children }) {
           updateLastActive();
         };
 
-        const handleSessionRestored = (data) => {
+        const handleSessionRestored = data => {
           console.log("Session restored: ", data);
           setSessionToken(data.sessionToken);
           setPlayerId(data.playerId);
@@ -180,7 +182,7 @@ export function SocketProvider({ children }) {
     if (username && sessionToken && !isConnected && !autoConnectAttempted.current) {
       autoConnectAttempted.current = true;
       console.log("Auto-reconnecting with existing session...");
-      connectSocket().catch((error) => {
+      connectSocket().catch(error => {
         console.log("Auto-reconnect failed:", error.message);
         autoConnectAttempted.current = false;
       });
