@@ -1,18 +1,18 @@
-import { generateId } from "@utils/generateId";
 import { HanafudaCard } from "./Card";
 import { HanafudaDeck } from "./Deck";
 import { Player } from "./Player";
 import {
   DiscardCardResult,
   DiscardFlippedCardResult,
-  GameRules,
+  GameOverStateDTO,
   GameSettings,
   GameStateDTO,
+  NextRoundStateDTO,
   PlayCardResult,
   PlayFlippedCardResult,
   RoundResult,
 } from "@interfaces/game.interface";
-import { start } from "repl";
+import { PlayerRoundResult } from "@interfaces/player.interface";
 
 export class Game {
   private id: string;
@@ -27,41 +27,229 @@ export class Game {
 
   // Turn Management
   private currentTurnIndex: number;
-  // private turnPhase: "draw" | "play" | "capture" | "scoring";
 
-  // Game Rules & Configuration
-  // private rules: GameRules;
-  // private settings: GameSettings;
+  // Game Settings
+  private settings: GameSettings;
 
-  // Timing
-  // private startTime: Date;
-  // private lastActionTime: Date;
-  // private turnTimer?: NodeJS.Timeout;
-
-  constructor(roomId: string, players: Player[]) {
+  constructor(roomId: string, players: Player[], settings?: GameSettings) {
     this.id = roomId; // use the same id as the roomId
     this.roomId = roomId;
     this.players = players;
     this.currentRound = 1;
-    // this.rules = rules || getDefaultRules();
-    // this.settings = this.rules.settings;
-
-    // this.turnOrder = this.determineTurnOrder();
+    this.flippedCard = undefined;
     this.currentTurnIndex = 0;
+
+    this.settings = {
+      maxPlayers: settings?.maxPlayers || 4,
+      minPlayers: settings?.minPlayers || 3,
+      totalRounds: settings?.totalRounds || 3,
+    };
 
     this.startGame();
   }
 
-  // Game Lifecycle Methods
-  public startGame(): void {
-    this.players.forEach(player => player.initializeGameData());
+  //
+  // PUBLIC METHODS
+  //
 
-    this.initializeDeck();
-    this.dealCards();
-    this.startTurn();
+  public getId(): string {
+    return this.id;
   }
 
-  // Card Management
+  public getRoomId(): string {
+    return this.roomId;
+  }
+
+  public getPlayers(): Player[] {
+    return this.players;
+  }
+
+  public getCurrentTurnIndex(): number {
+    return this.currentTurnIndex;
+  }
+
+  //
+  //  GAME MANAGEMENT
+  //
+
+  public startGame(): void {
+    this.players.forEach(player => player.initializeGameData());
+    this.initializeDeck();
+    this.dealCards();
+  }
+
+  public endRound(): PlayerRoundResult[] {
+    const results = this.players.map(player => player.calculateRoundScore());
+    results.sort((a, b) => b.score - a.score);
+
+    // Set next turn to the winner
+    this.currentTurnIndex = this.players.findIndex(player => player.getId() === results[0].playerId);
+
+    return results;
+  }
+
+  public startNextRound(): void {
+    this.currentRound += 1;
+    this.initializeDeck();
+    this.dealCards();
+  }
+
+  //
+  //  CARD PLAY METHODS
+  //
+
+  public playCard(playerId: string, cardId: string, targetCardId: string): PlayCardResult {
+    const player = this.validatePlayerInGame(playerId);
+    const handCard = this.validatePlayerHasCard(player, cardId);
+    const targetCard = this.validateCardOnTable(targetCardId);
+
+    this.validatePlayerInTurn(playerId);
+    this.validateCardMatch(handCard, targetCard);
+
+    player.playCard(handCard, targetCard);
+    this.removeCardFromTable(targetCardId);
+    this.drawFlippedCard();
+
+    return { handCard, targetCard, flippedCard: this.flippedCard! };
+  }
+
+  public discardCard(playerId: string, cardId: string): DiscardCardResult {
+    const player = this.validatePlayerInGame(playerId);
+    const handCard = this.validatePlayerHasCard(player, cardId);
+
+    this.validatePlayerInTurn(playerId);
+
+    player.discard(handCard);
+    this.addCardToTable(handCard);
+    this.drawFlippedCard();
+
+    return { handCard, flippedCard: this.flippedCard! };
+  }
+
+  public playFlippedCard(playerId: string, cardId: string, targetCardId: string): PlayFlippedCardResult {
+    this.validateFlippedCardExists();
+    const player = this.validatePlayerInGame(playerId);
+    this.validatePlayerInTurn(playerId);
+    this.validateFlippedCardMatches(cardId);
+    const targetCard = this.validateCardOnTable(targetCardId);
+
+    this.validateCardMatch(this.flippedCard!, targetCard);
+
+    player.capture(this.flippedCard!);
+    player.capture(targetCard);
+
+    this.removeCardFromTable(targetCardId);
+    this.clearFlippedCard();
+    this.nextTurn();
+
+    return { targetCardId: targetCard.id, currentTurnIndex: this.currentTurnIndex };
+  }
+
+  public discardFlippedCard(playerId: string, cardId: string): DiscardFlippedCardResult {
+    this.validateFlippedCardExists();
+    const player = this.validatePlayerInGame(playerId);
+    this.validatePlayerInTurn(playerId);
+    this.validateFlippedCardMatches(cardId);
+
+    this.addCardToTable(this.flippedCard!);
+    this.clearFlippedCard();
+    this.nextTurn();
+
+    return { currentTurnIndex: this.currentTurnIndex };
+  }
+
+  // CHECKERS
+
+  public isRoundOver(): boolean {
+    return this.deck.isEmpty() && this.flippedCard === undefined;
+  }
+
+  public isGameOver(): boolean {
+    if (!this.isRoundOver()) {
+      throw new Error("Round is not over.");
+    }
+    return this.currentRound >= this.settings.totalRounds;
+  }
+
+  //  GETTERS
+
+  public getCurrentPlayer(): Player {
+    return this.players[this.currentTurnIndex];
+  }
+
+  public getState(forPlayerId: string): GameStateDTO {
+    return {
+      id: this.id,
+      roomId: this.roomId,
+      currentRound: this.currentRound,
+      currentTurnIndex: this.currentTurnIndex,
+      players: this.players.map(player => player.getGameState()),
+      table: this.table,
+      myHand: this.getPlayerHand(forPlayerId),
+      flippedCard: this.flippedCard,
+      deckSize: this.deck.getRemainingCount(),
+    };
+  }
+
+  public getNextRoundState(forPlayerId: string): NextRoundStateDTO {
+    return {
+      table: this.table,
+      myHand: this.getPlayerHand(forPlayerId),
+      currentTurnIndex: this.currentTurnIndex,
+      deckSize: this.deck.getRemainingCount(),
+    };
+  }
+
+  public getGameOverState(): GameOverStateDTO {
+    return {
+      finalScores: this.players.map(player => ({
+        username: player.getUsername(),
+        score: player.getFinalScore(),
+      })),
+      winner: this.determineWinner(),
+    };
+  }
+
+  //
+  //  PRIVATE METHODS
+  //
+
+  private getPlayerHand(playerId: string): HanafudaCard[] {
+    return this.players.find(player => player.getId() === playerId)?.getHand() || [];
+  }
+
+  private determineWinner(): string {
+    const winner = this.players.reduce((prev, current) => (prev.getFinalScore() > current.getFinalScore() ? prev : current));
+    return winner.getUsername();
+  }
+
+  private removeCardFromTable(cardId: string): void {
+    this.table = this.table.filter(card => card.id !== cardId);
+  }
+
+  private addCardToTable(card: HanafudaCard): void {
+    this.table.push(card);
+  }
+
+  private drawFlippedCard(): void {
+    this.flippedCard = this.deck.draw();
+  }
+
+  private clearFlippedCard(): void {
+    this.flippedCard = undefined;
+  }
+
+  private nextTurn(): void {
+    this.currentTurnIndex = (this.currentTurnIndex + 1) % this.players.length;
+  }
+
+  private calculateScores(): void {
+    this.players.forEach(player => {
+      player.calculateRoundScore();
+    });
+  }
+
+  //  CARD MANAGEMENT METHODS
   private initializeDeck(): void {
     this.deck = new HanafudaDeck();
     this.deck.shuffle();
@@ -75,189 +263,52 @@ export class Game {
     this.table = this.deck.deal(tableCards);
   }
 
-  // Turn Management
-  public startTurn(): void {
-    const currentPlayer = this.getCurrentPlayer();
+  // VALIDATION METHODS
+  private validatePlayerInGame(playerId: string): Player {
+    const player = this.players.find(player => player.getId() === playerId);
+    if (!player) {
+      throw new Error("Player not found in game.");
+    }
+    return player;
   }
 
-  public nextTurn(): void {
-    this.currentTurnIndex = (this.currentTurnIndex + 1) % this.players.length;
+  private validatePlayerHasCard(player: Player, cardId: string): HanafudaCard {
+    const card = player.getHand()!.find(card => card.id === cardId);
+    if (!card) {
+      throw new Error("Card not found in player's hand.");
+    }
+    return card;
   }
 
-  playCard(playerId: string, cardId: string, targetCardId: string): PlayCardResult {
-    try {
-      // Check if player is in game
-      const player = this.players.find(player => player.getId() === playerId);
-      if (!player) {
-        throw new Error("Player not found in game.");
-      }
+  private validateCardOnTable(cardId: string): HanafudaCard {
+    const card = this.table.find(card => card.id === cardId);
+    if (!card) {
+      throw new Error("Target card not found on table.");
+    }
+    return card;
+  }
 
-      // Check if player has the card
-      const handCard = player.getHand()!.find(card => card.id === cardId);
-      if (!handCard) {
-        throw new Error("Card not found in player's hand.");
-      }
-
-      // Check if target card is on the table
-      const targetCard = this.table.find(card => card.id === targetCardId);
-      if (!targetCard) {
-        throw new Error("Target card not found on table.");
-      }
-
-      // check if valid move
-      if (!handCard.matchesMonth(targetCard)) {
-        throw new Error("Invalid card play.");
-      }
-
-      player.playCard(handCard, targetCard);
-      this.table = this.table.filter(card => card.id !== targetCardId);
-      this.flippedCard = this.deck.draw();
-
-      return { handCard, targetCard, flippedCard: this.flippedCard! };
-    } catch (error: any) {
-      throw error;
+  private validateCardMatch(card: HanafudaCard, targetCard: HanafudaCard): void {
+    if (!card.matchesMonth(targetCard)) {
+      throw new Error("Invalid card play.");
     }
   }
 
-  discardCard(playerId: string, cardId: string): DiscardCardResult {
-    try {
-      // Check if player is in game
-      const player = this.players.find(player => player.getId() === playerId);
-      if (!player) {
-        throw new Error("Player not found in game.");
-      }
-
-      // Check if player has the card
-      const handCard = player.getHand()!.find(card => card.id === cardId);
-      if (!handCard) {
-        throw new Error("Card not found in player's hand.");
-      }
-
-      player.discard(handCard);
-      this.table.push(handCard);
-      this.flippedCard = this.deck.draw();
-
-      return { handCard, flippedCard: this.flippedCard! };
-    } catch (error: any) {
-      throw error;
+  private validateFlippedCardExists(): void {
+    if (!this.flippedCard) {
+      throw new Error("No flipped card. Wrong turn phase.");
     }
   }
 
-  playFlippedCard(playerId: string, cardId: string, targetCardId: string): PlayFlippedCardResult {
-    try {
-      if (!this.flippedCard) {
-        throw new Error("No flipped card. Wrong turn phase.");
-      }
-
-      const player = this.players.find(player => player.getId() === playerId);
-      if (!player) {
-        throw new Error("Player not found in game.");
-      }
-
-      // Check if player has the card
-      if (cardId !== this.flippedCard!.id) {
-        throw new Error("Invalid flipped card.");
-      }
-
-      // Check if target card is on the table
-      const targetCard = this.table.find(card => card.id === targetCardId);
-      if (!targetCard) {
-        throw new Error("Target card not found on table.");
-      }
-
-      // check if valid move
-      if (!this.flippedCard!.matchesMonth(targetCard)) {
-        throw new Error("Invalid card play.");
-      }
-
-      // update player state
-      player.capture(this.flippedCard!);
-      player.capture(targetCard);
-
-      // update game state
-      this.table = this.table.filter(card => card.id !== targetCardId);
-      this.flippedCard = undefined;
-      this.nextTurn();
-
-      return { targetCardId: targetCard.id, currentTurnIndex: this.currentTurnIndex };
-    } catch (error: any) {
-      throw error;
+  private validateFlippedCardMatches(cardId: string): void {
+    if (cardId !== this.flippedCard!.id) {
+      throw new Error("Invalid flipped card.");
     }
   }
 
-  discardFlippedCard = (playerId: string, cardId: string): DiscardFlippedCardResult => {
-    try {
-      if (!this.flippedCard) {
-        throw new Error("No flipped card. Wrong turn phase.");
-      }
-
-      const player = this.players.find(player => player.getId() === playerId);
-      if (!player) {
-        throw new Error("Player not found in game.");
-      }
-
-      // Check if player has the card
-      if (cardId !== this.flippedCard!.id) {
-        throw new Error("Invalid flipped card.");
-      }
-
-      // update game state
-      this.table.push(this.flippedCard!);
-      this.flippedCard = undefined;
-      this.nextTurn();
-
-      return { currentTurnIndex: this.currentTurnIndex };
-    } catch (error: any) {
-      throw error;
+  private validatePlayerInTurn(playerId: string): void {
+    if (this.getCurrentPlayer().getId() !== playerId) {
+      throw new Error("It is not your turn.");
     }
-  };
-
-  // Scoring Methods
-  public calculateScores(): void {
-    this.players.forEach(player => {
-      // const yaku = this.identifyYaku(player.collectedCards);
-      // const score = this.calculateYakuScore(yaku);
-      // this.scores.set(player.id, (this.scores.get(player.getId()) || 0) + score);
-    });
-  }
-
-  // Utility Methods
-  public getCurrentPlayer(): Player {
-    return this.players[this.currentTurnIndex];
-  }
-
-  public isPlayerTurn(playerId: string): boolean {
-    return this.getCurrentPlayer().getId() === playerId;
-  }
-
-  public getState(forPlayerId: string): GameStateDTO {
-    // Return sanitized game state for client
-    return {
-      id: this.id,
-      roomId: this.roomId,
-      currentRound: this.currentRound,
-      currentTurnIndex: this.currentTurnIndex,
-      players: this.players.map(player => player.getGameState()),
-      table: this.table,
-      myHand: this.players.find(player => player.getId() === forPlayerId)?.getHand() || [],
-      flippedCard: this.flippedCard,
-      deckSize: this.deck.getRemainingCount(),
-    };
-  }
-
-  getId(): string {
-    return this.id;
-  }
-
-  getRoomId(): string {
-    return this.roomId;
-  }
-
-  getPlayers(): Player[] {
-    return this.players;
-  }
-
-  getCurrentTurnIndex(): number {
-    return this.currentTurnIndex;
   }
 }

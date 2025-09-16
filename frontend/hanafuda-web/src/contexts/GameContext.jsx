@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useEffect, useReducer } from "react";
+import { createContext, useContext, useCallback, useEffect, useReducer, useRef, useState, use } from "react";
 import { useSocket } from "./SocketContext";
 import { usePlayer } from "./PlayerContext";
 
@@ -71,6 +71,7 @@ const gameReducer = (state, action) => {
         table: updatedTable,
         players: updatedPlayers,
         flippedCard: action.flippedCard,
+        deckSize: action.deckSize,
         isOperating: false,
         operationError: null,
         error: null,
@@ -82,6 +83,7 @@ const gameReducer = (state, action) => {
         ...state,
         table: [...state.table, action.handCard],
         flippedCard: action.flippedCard,
+        deckSize: action.deckSize,
         isOperating: false,
         operationError: null,
         error: null,
@@ -121,6 +123,77 @@ const gameReducer = (state, action) => {
         error: null,
       };
 
+    case "ROUND_OVER": {
+      // action: { type, roundResult: { playerId, username, score }[] }
+      const roundResults = action.roundResult;
+
+      // Convert array to map for O(1) lookups
+      const resultMap = new Map();
+      roundResults.forEach(result => {
+        resultMap.set(result.playerId, result);
+      });
+
+      // Update players
+      const updatedPlayers = state.players.map(player => {
+        const roundResult = resultMap.get(player.id);
+
+        if (roundResult) {
+          return {
+            ...player,
+            score: roundResult.score,
+            captured: [],
+          };
+        }
+        return player;
+      });
+
+      console.log("ROUND OVER - Updated scores:", roundResults);
+      return {
+        ...state,
+        roundResult: action.roundResult,
+        players: updatedPlayers,
+        isOperating: false,
+        operationError: null,
+        error: null,
+      };
+    }
+
+    case "SHOW_ROUND_TRANSITION":
+      return {
+        ...state,
+        showRoundTransition: true,
+        transitionDuration: action.duration,
+        transitionMessage: action.message,
+      };
+
+    case "NEW_ROUND_STARTED":
+      console.log("NEW ROUND STARTED", action);
+      return {
+        ...state,
+        table: action.table,
+        myHand: action.myHand,
+        deckSize: action.deckSize,
+        currentRound: action.currentRound,
+        currentTurnIndex: action.currentTurnIndex,
+        showRoundTransition: false,
+        flippedCard: null,
+        isOperating: false,
+        operationError: null,
+        error: null,
+      };
+
+    case "GAME_OVER":
+      console.log("GAME OVER", action);
+      return {
+        ...state,
+        isGameOver: true,
+        winner: action.winner,
+        finalScores: action.finalScores,
+        isOperating: false,
+        operationError: null,
+        error: null,
+      };
+
     case "CLEAR_GAME":
       return {
         id: "",
@@ -136,6 +209,17 @@ const gameReducer = (state, action) => {
         isLoading: false,
         operationError: null,
         isOperating: false,
+
+        // Round OVer Notification state
+        roundResult: [],
+        showRoundTransition: false,
+        transitionDuration: 0,
+        transitionMessage: "",
+
+        // Game Over Notification state
+        isGameOver: false,
+        finalScores: {},
+        winner: null,
       };
 
     default:
@@ -158,6 +242,17 @@ export const GameProvider = ({ children }) => {
     isLoading: false,
     operationError: null,
     isOperating: false,
+
+    // Round OVer Notification state
+    roundResult: [],
+    showRoundTransition: false,
+    transitionDuration: 0,
+    transitionMessage: "",
+
+    // Game Over Notification state
+    isGameOver: false,
+    finalScores: {},
+    winner: null,
   });
 
   const { emitSafe, socket } = useSocket();
@@ -178,12 +273,14 @@ export const GameProvider = ({ children }) => {
           handCard: data.handCard,
           targetCard: data.targetCard,
           flippedCard: data.flippedCard,
+          deckSize: state.deckSize - 1,
         });
       } else if (data.action === "discard") {
         dispatch({
           type: "PLAYER_DISCARDED_CARD",
           handCard: data.handCard,
           flippedCard: data.flippedCard,
+          deckSize: state.deckSize - 1,
         });
       }
     };
@@ -208,11 +305,47 @@ export const GameProvider = ({ children }) => {
       }
     };
 
+    // In your game context
+    const handleRoundTransition = data => {
+      console.log("Round transition", data);
+
+      dispatch({
+        type: "ROUND_OVER",
+        roundResult: data.roundResult,
+      });
+
+      dispatch({
+        type: "SHOW_ROUND_TRANSITION",
+        duration: 5,
+        message: "Round ended - Starting new round in...",
+      });
+
+      setTimeout(() => {
+        dispatch({
+          type: "NEW_ROUND_STARTED",
+          table: data.nextRound.table,
+          myHand: data.nextRound.myHand,
+          deckSize: data.nextRound.deckSize,
+          currentTurnIndex: data.nextRound.currentTurnIndex,
+          currentRound: state.currentRound + 1,
+        });
+      }, 5000);
+    };
+
+    const handleGameOver = data => {
+      console.log("Game over", data);
+      dispatch({ type: "GAME_OVER", winner: data.winner, finalScores: data.finalScores });
+    };
+
     socket.on("player-played-card", handlePlayerPlayedCard);
     socket.on("player-played-flipped-card", handlePlayerPlayedFlippedCard);
+    socket.on("round-transition", handleRoundTransition);
+    socket.on("game-over", handleGameOver);
     return () => {
       socket.off("player-played-card", handlePlayerPlayedCard);
       socket.off("player-played-flipped-card", handlePlayerPlayedFlippedCard);
+      socket.off("round-transition", handleRoundTransition);
+      socket.off("game-over", handleGameOver);
     };
   }, [socket, state]);
 
@@ -309,13 +442,21 @@ export const GameProvider = ({ children }) => {
     [emitSafe, socket]
   );
 
+  const clearGame = useCallback(() => {
+    dispatch({ type: "CLEAR_GAME" });
+    player.setGameId(null);
+  }, [dispatch, player]);
+
   const value = {
+    ...state,
+
     gameState: {
       ...state,
     },
 
     fetchGameData,
     playCard,
+    clearGame,
   };
 
   return <GameStateContext.Provider value={value}>{children}</GameStateContext.Provider>;

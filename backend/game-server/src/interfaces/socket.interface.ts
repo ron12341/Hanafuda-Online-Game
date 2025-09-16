@@ -1,14 +1,22 @@
 import { Server, Socket } from "socket.io";
 import { HanafudaCard } from "@core/Card";
-import { PlayerStatus } from "./player.interface";
+import { PlayerRoundResult, PlayerStatus } from "./player.interface";
 import { LobbyStateDTO } from "./dtos/LobbyState.dto";
 import { PlayerStateDTO } from "./dtos/PlayerState.dto";
 import { Player } from "@core/Player";
 import { RoomSettings } from "./room.interface";
-import { GameStateDTO } from "./game.interface";
+import { GameOverStateDTO, GameStateDTO, NextRoundStateDTO } from "./game.interface";
+
+//
+//  CLIENT TO SERVER EVENTS
+//
 
 export interface ClientToServerEvents {
-  "join-game": (gameId: string, callback: (success: boolean) => void) => void;
+  // // Connection & Authentication Events
+  // "register-player": (username: string, callback: (response: { success: boolean; error?: string }) => void) => void;
+
+  // Lobby Events
+  "request-lobby-state": (callback: (state: LobbyStateDTO) => void) => void;
   "create-room": (
     data: {
       roomName: string;
@@ -16,7 +24,11 @@ export interface ClientToServerEvents {
     },
     callback: (response: { success: boolean; roomId?: string; error?: string }) => void
   ) => void;
-  "request-lobby-state": (callback: (state: LobbyStateDTO) => void) => void;
+
+  // Room Events
+  "join-room": (data: { roomId: string }) => void;
+  "leave-room": (data: { playerId: string; roomId: string }) => void;
+  "ready-change": (data: { isReady: boolean }) => void;
   "request-room-state": (
     data: {
       playerId: string;
@@ -35,26 +47,29 @@ export interface ClientToServerEvents {
       error?: string;
     }) => void
   ) => void;
-  "join-room": (data: { roomId: string }) => void;
-  "leave-room": () => void;
-  "ready-change": (data: { isReady: boolean }) => void;
-  "request-player-state": (player: Player) => void;
-  "register-player": (username: string, callback: (response: { success: boolean; error?: string }) => void) => void;
 
-  "request-game-state": (data: { gameId: string }) => void;
+  // Game Events
+  "join-game": (gameId: string, callback: (success: boolean) => void) => void;
   "start-game": () => void;
+  "request-game-state": (data: { gameId: string }) => void;
   "play-card": (data: { gameId: string; playerId: string; cardId: string; targetCardId?: string; action: string; cardType: string }) => void;
-  "play-flipped-card": (data: { gameId: string; playerId: string; cardId: string; targetCardId?: string; action: string }) => void;
 }
 
+//
+//  SERVER TO CLIENT EVENTS
+//
+
 export interface ServerToClientEvents {
-  // Connection & Session Events
+  // Connection Events
   connect: () => void;
   connect_error: (error: Error) => void;
   disconnect: (reason: string) => void;
   reconnect: (attempt: number) => void;
   reconnect_attempt: (attempt: number) => void;
   reconnect_failed: (error: Error) => void;
+  "connection-error": (error: { error: string; details: string }) => void;
+
+  // Session Events
   "session-created": (data: { sessionToken: string; playerId: string; username: string; isReady: boolean }) => void;
   "session-restored": (data: {
     sessionToken: string;
@@ -64,21 +79,9 @@ export interface ServerToClientEvents {
     roomId?: string;
     gameId?: string;
   }) => void;
-  "connection-error": (error: { error: string; details: string }) => void;
 
-  // Lobby & Room Events
+  // Lobby Events
   "lobby-state": (state: LobbyStateDTO) => void;
-  "room-state": (state: {
-    id: string;
-    name: string;
-    creatorId: string;
-    players: Array<{
-      id: string;
-      name: string;
-      isReady: boolean;
-    }>;
-  }) => void;
-  "room-state-error": (data: { error: string; roomId: string; playerId?: string }) => void;
   "lobby-update-rooms": (
     rooms: Array<{
       id: string;
@@ -90,28 +93,35 @@ export interface ServerToClientEvents {
     }>
   ) => void;
   "lobby-update-waiting-players": (players: Array<{ id: string; name: string }>) => void;
+
+  // Room Events
+  "room-state": (state: {
+    id: string;
+    name: string;
+    creatorId: string;
+    players: Array<{
+      id: string;
+      name: string;
+      isReady: boolean;
+    }>;
+  }) => void;
+  "room-state-error": (data: { error: string; roomId: string; playerId?: string }) => void;
   "join-room-success": (data: { roomId: string }) => void;
   "join-room-error": (data: { error: string; roomId: string }) => void;
-  "ready-change-success": (data: { isReady: boolean; playerId: string }) => void;
-  "ready-change-error": (data: { error: string }) => void;
   "leave-room-success": (data: { roomId: string }) => void;
   "leave-room-error": (data: { error: string }) => void;
   "player-joined-room": (data: { id: string; name: string; isReady: boolean }) => void;
-  "player-left-room": (data: { id: string }) => void;
+  "player-left-room": (data: { playerId: string; creatorId: string }) => void;
   "player-ready-changed": (data: { playerId: string; isReady: boolean }) => void;
-  "player-reconnected": (data: { playerId: string; username: string }) => void;
+  "ready-change-success": (data: { isReady: boolean; playerId: string }) => void;
+  "ready-change-error": (data: { error: string }) => void;
 
-  "start-game-error": (data: { error: string }) => void;
+  // Game Events
   "game-started": (data: { gameId: string }) => void;
+  "start-game-error": (data: { error: string }) => void;
   "game-state": (data: { state: GameStateDTO }) => void;
 
-  // Room Events
-  "player-joined": (playerId: string) => void;
-  "player-left": (playerId: string) => void;
-  "invalid-move": (message: string) => void;
-  "player-state": (player: PlayerStateDTO) => void;
-
-  // In Game Events
+  // Card Play Events
   "play-card-error": (data: { error: string }) => void;
   "play-card-success": (data: { success: boolean }) => void;
   "player-played-card": (data: {
@@ -123,13 +133,28 @@ export interface ServerToClientEvents {
   }) => void;
   "player-played-flipped-card": (data: { playerId: string; action: string; targetCardId?: string; currentTurnIndex: number }) => void;
 
-  // Utility Events
+  // Round & Game Progress Events
+  "round-transition": (data: { roundResult: PlayerRoundResult[]; nextRound: NextRoundStateDTO }) => void;
+  "game-over": (data: GameOverStateDTO) => void;
+
+  // Player Events
+  "player-reconnected": (data: { playerId: string; username: string }) => void;
+
+  // Ping Events
   pong: () => void;
 }
+
+//
+//  INTER SERVER EVENTS
+//
 
 export interface InterServerEvents {
   ping: () => void;
 }
+
+//
+//  SOCKET DATA
+//
 
 export interface SocketData {
   playerId: string;

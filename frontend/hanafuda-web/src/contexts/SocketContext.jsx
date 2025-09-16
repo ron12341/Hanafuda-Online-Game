@@ -6,7 +6,7 @@ const SocketContext = createContext();
 const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL;
 
 export function SocketProvider({ children }) {
-  const { player, setPlayerId, setSessionToken, setStatus, setIsReady, updateLastActive } = usePlayer();
+  const { player, setPlayerId, setSessionToken, setStatus, setIsReady, updateLastActive, setRoomId, setGameId } = usePlayer();
 
   const { username, sessionToken } = player;
 
@@ -37,12 +37,13 @@ export function SocketProvider({ children }) {
 
         const newSocket = io(WEBSOCKET_URL, {
           transports: ["websocket"],
-          timeout: 10000,
+          timeout: 15000,
           autoConnect: false,
           reconnection: true,
-          reconnectionAttempts: 5,
+          reconnectionAttempts: Infinity,
           reconnectionDelay: 1000,
-          reconnectionDelayMax: 5000,
+          reconnectionDelayMax: 10000,
+          randomizationFactor: 0.5,
           query: {
             username: connectionUsername,
             sessionToken: sessionToken,
@@ -64,7 +65,7 @@ export function SocketProvider({ children }) {
 
         // Transport-level connection error
         const handleConnectError = error => {
-          console.log("Transport connection failed: ", error);
+          console.log("Transport connection failed: ", error.message);
           isConnecting.current = false;
           setConnectionError(error.message);
           setIsConnected(false);
@@ -115,6 +116,8 @@ export function SocketProvider({ children }) {
           setSessionToken(data.sessionToken);
           setPlayerId(data.playerId);
           setIsReady(data.isReady);
+          setRoomId(data.roomId);
+          setGameId(data.gameId);
           updateLastActive();
         };
 
@@ -130,7 +133,7 @@ export function SocketProvider({ children }) {
         newSocket.connect();
       });
     },
-    [username, sessionToken, setSessionToken, setPlayerId, setStatus, updateLastActive]
+    [player, username, sessionToken, setSessionToken, setPlayerId, setStatus, updateLastActive, setIsReady]
   );
 
   // Helper function to emit events with error handling
@@ -155,14 +158,13 @@ export function SocketProvider({ children }) {
 
       console.warn(`Cannot emit ${event}: Socket is not connected`);
 
-      // Optional: Trigger reconnection or show UI feedback
       if (callback && typeof callback === "function") {
         callback({ success: false, error: "Socket not connected" });
       }
 
       return false;
     },
-    [socket, updateLastActive]
+    [socket, updateLastActive, setIsReady, setSessionToken, setPlayerId, setStatus]
   );
 
   // Disconnect function

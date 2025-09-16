@@ -8,38 +8,12 @@ export class SessionService {
 
   constructor(private services: ServiceContainer) {}
 
-  // Session management methods
-  updateSession(sessionToken: string, updates: Partial<PlayerSession>) {
-    const session = this.sessions.get(sessionToken);
-    if (session) {
-      this.sessions.set(sessionToken, { ...session, ...updates });
-      return true;
-    }
-    return false;
-  }
-
-  getSession(sessionToken: string) {
-    return this.sessions.get(sessionToken);
-  }
-
-  removeSession(sessionToken: string) {
-    this.sessions.delete(sessionToken);
-  }
-
-  addSession(sessionToken: string, session: PlayerSession) {
-    this.sessions.set(sessionToken, session);
-  }
-
-  hasSession(sessionToken: string) {
-    return this.sessions.has(sessionToken);
-  }
-
-  generateSessionToken() {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  }
+  //
+  //  PUBLIC METHODS
+  //
 
   // Connection handling methods (moved from SocketManager)
-  handleNewConnection(socket: HanafudaSocket, username: string) {
+  public handleNewConnection(socket: HanafudaSocket, username: string) {
     try {
       // Check if username is taken
       const existingPlayer = this.services.playerService.getPlayerByUsername(username);
@@ -88,9 +62,6 @@ export class SessionService {
         isReady: player.getIsReady(),
       });
 
-      // Send initial lobby state
-      socket.emit("lobby-state", this.services.lobbyService.getLobbyState());
-
       console.log(`New player registered: ${username} (${player.getId()})`);
     } catch (error: any) {
       console.error("Error handling new connection: ", error);
@@ -102,7 +73,7 @@ export class SessionService {
     }
   }
 
-  handleReconnection(socket: HanafudaSocket, sessionToken: string) {
+  public handleReconnection(socket: HanafudaSocket, sessionToken: string) {
     try {
       const session = this.getSession(sessionToken);
       if (!session) throw new Error("Invalid session token");
@@ -111,6 +82,7 @@ export class SessionService {
       if (!player) throw new Error("Player not found");
 
       // Update player and session
+      player.setSocketId(socket.id);
       player.setConnectionStatus("connected");
       this.updateSession(sessionToken, {
         socketId: socket.id,
@@ -124,14 +96,13 @@ export class SessionService {
         username: player.getName(),
         status: player.getStatus(),
         sessionToken: sessionToken,
-        roomId: session.roomId,
-        gameId: session.gameId,
       };
 
-      // Rejoin rooms if needed
-      if (session.roomId) {
-        socket.join(session.roomId);
-        socket.to(session.roomId).emit("player-reconnected", {
+      // // Rejoin rooms if needed
+      if (player.getRoomId()) {
+        const roomId = player.getRoomId()!;
+        socket.join(roomId);
+        socket.to(roomId).emit("player-reconnected", {
           playerId: player.getId(),
           username: player.getName(),
         });
@@ -142,12 +113,10 @@ export class SessionService {
         sessionToken: sessionToken,
         playerId: player.getId(),
         username: player.getName(),
-        roomId: session.roomId,
-        gameId: session.gameId,
+        roomId: player.getRoomId(),
+        gameId: player.getGameId(),
         isReady: player.getIsReady(),
       });
-
-      socket.emit("lobby-state", this.services.lobbyService.getLobbyState());
 
       console.log(`Player reconnected: ${player.getName()} (${player.getId()})`);
     } catch (error: any) {
@@ -160,7 +129,7 @@ export class SessionService {
     }
   }
 
-  handleDisconnection(sessionToken: string) {
+  public handleDisconnection(sessionToken: string) {
     const session = this.getSession(sessionToken);
     if (!session) return;
 
@@ -176,6 +145,45 @@ export class SessionService {
     this.sessionTimeouts.set(sessionToken, timeout);
   }
 
+  public hasSession(sessionToken: string) {
+    return this.sessions.has(sessionToken);
+  }
+
+  // Helper method to update ready status in session
+  public updateSessionReadyStatus(sessionToken: string, isReady: boolean) {
+    this.updateSession(sessionToken, { isReady });
+  }
+
+  //
+  //  PRIVATE METHODS
+  //
+
+  // Session management methods
+  private updateSession(sessionToken: string, updates: Partial<PlayerSession>) {
+    const session = this.sessions.get(sessionToken);
+    if (session) {
+      this.sessions.set(sessionToken, { ...session, ...updates });
+      return true;
+    }
+    return false;
+  }
+
+  private getSession(sessionToken: string) {
+    return this.sessions.get(sessionToken);
+  }
+
+  private removeSession(sessionToken: string) {
+    this.sessions.delete(sessionToken);
+  }
+
+  private addSession(sessionToken: string, session: PlayerSession) {
+    this.sessions.set(sessionToken, session);
+  }
+
+  private generateSessionToken() {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  }
+
   // Utility methods
   private cleanupExpiredSession(sessionToken: string) {
     const session = this.getSession(sessionToken);
@@ -183,34 +191,28 @@ export class SessionService {
 
     console.log(`Cleaning up expired session for: ${session.username}`);
 
+    const player = this.services.playerService.getPlayerById(session.playerId);
+    if (!player) return;
+
     // Remove from services
+
+    if (player.getRoomId()) {
+      this.services.roomService.removePlayerFromRoom(player.getRoomId()!, player.getId());
+    }
+
     this.services.playerService.removePlayerById(session.playerId);
     this.services.lobbyService.removePlayerFromLobby(session.playerId);
-
-    if (session.roomId) {
-      this.services.roomService.removePlayerFromRoom(session.roomId, session.playerId);
-    }
 
     // Remove session
     this.sessions.delete(sessionToken);
     this.sessionTimeouts.delete(sessionToken);
   }
 
-  clearSessionTimeout(sessionToken: string) {
+  private clearSessionTimeout(sessionToken: string) {
     const timeout = this.sessionTimeouts.get(sessionToken);
     if (timeout) {
       clearTimeout(timeout);
       this.sessionTimeouts.delete(sessionToken);
     }
-  }
-
-  // Helper method to update room ID in session
-  updateSessionRoom(sessionToken: string, roomId: string | undefined) {
-    this.updateSession(sessionToken, { roomId });
-  }
-
-  // Helper method to update ready status in session
-  updateSessionReadyStatus(sessionToken: string, isReady: boolean) {
-    this.updateSession(sessionToken, { isReady });
   }
 }

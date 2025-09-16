@@ -15,8 +15,7 @@ export interface GameRules {
 export interface GameSettings {
   maxPlayers: number;
   minPlayers: number;
-  startingCards: number;
-  tableCards: number;
+  totalRounds: number;
 }
 
 export interface RoundResult {
@@ -42,6 +41,18 @@ export interface GameStateDTO {
   myHand: HanafudaCard[];
   flippedCard: HanafudaCard | undefined;
   deckSize: number;
+}
+
+export interface NextRoundStateDTO {
+  table: HanafudaCard[];
+  myHand: HanafudaCard[];
+  currentTurnIndex: number;
+  deckSize: number;
+}
+
+export interface GameOverStateDTO {
+  finalScores: Array<{ username: string; score: number }> | undefined;
+  winner: string;
 }
 
 export interface PlayCardResult {

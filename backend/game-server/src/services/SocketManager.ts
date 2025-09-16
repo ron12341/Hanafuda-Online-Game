@@ -6,10 +6,8 @@ export class SocketManager {
 
   constructor(private io: HanafudaIO, private services: ServiceContainer) {}
 
-  initialize() {
+  public initialize() {
     this.io.on("connection", (socket: HanafudaSocket) => {
-      console.log("New connection attempt: ", socket.id);
-
       // Limit connection attempts
       this.limitConnectionAttempts(socket);
 
@@ -43,11 +41,11 @@ export class SocketManager {
     this.services.gameService.setupSocketHandlers(socket);
 
     // Connection events (stay in SocketManager)
-    socket.on("disconnect", (reason) => {
+    socket.on("disconnect", reason => {
       this.handleDisconnect(socket, reason);
     });
 
-    socket.on("error", (error) => {
+    socket.on("error", error => {
       console.error(`Socket error (${socket.id}): ${error}`);
     });
   }

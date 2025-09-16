@@ -28,8 +28,11 @@ export default function RoomPage() {
 
     // Check if player is in the correct room
     if (player.roomId !== roomId) {
+      console.log("player.roomId: ", player.roomId);
+      console.log("roomId: ", roomId);
       setLocalError("You're not in this room. Redirecting...");
-      setTimeout(() => navigate("/lobby"), 2000);
+      console.log("Player is not in the correct room");
+      setTimeout(() => navigate("/lobby"), 100);
       return;
     }
 
@@ -57,7 +60,7 @@ export default function RoomPage() {
 
   const handleLeaveRoom = async () => {
     console.log("Leaving Room: ", roomId);
-    const result = await leaveRoom();
+    const result = await leaveRoom(roomId);
     if (result.success) {
       setTimeout(() => navigate("/lobby"), 100);
     } else {
@@ -79,10 +82,7 @@ export default function RoomPage() {
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="p-6 bg-white rounded-lg shadow-md text-center">
           <p className="text-lg text-gray-700 mb-4">Connecting to server...</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
+          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
             Retry Connection
           </button>
         </div>
@@ -95,10 +95,7 @@ export default function RoomPage() {
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="p-6 bg-white rounded-lg shadow-md text-center">
           <p className="text-lg text-gray-700 mb-4">{localError || "You're not in this room"}</p>
-          <button
-            onClick={() => navigate("/lobby")}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
+          <button onClick={() => navigate("/lobby")} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
             Back to Lobby
           </button>
         </div>
@@ -106,11 +103,11 @@ export default function RoomPage() {
     );
   }
 
-  const allPlayersReady = room.players.every((p) => p.isReady) && room.players.length > 0;
+  const allPlayersReady = room.players.every(p => p.isReady) && room.players.length > 0;
   const isRoomOwner = player.playerId === room.creatorId;
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-100 p-4 md:p-6 bg-gray-700">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 p-4 bg-white rounded-lg shadow-md">
@@ -141,11 +138,7 @@ export default function RoomPage() {
         )}
 
         {/* Loading State */}
-        {room.isLoading && (
-          <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 text-blue-700 rounded-r-md">
-            Loading room data...
-          </div>
-        )}
+        {room.isLoading && <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 text-blue-700 rounded-r-md">Loading room data...</div>}
 
         {/* Players Section */}
         <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
@@ -155,7 +148,7 @@ export default function RoomPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {room.players.length > 0 ? (
-              room.players.map((roomPlayer) => (
+              room.players.map(roomPlayer => (
                 <div
                   key={roomPlayer.id}
                   className={`flex items-center justify-between p-4 rounded-lg border-l-4 ${

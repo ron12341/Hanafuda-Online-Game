@@ -25,26 +25,25 @@ const roomReducer = (state, action) => {
         error: null, // Clear errors on successful update
       };
 
-    case "REMOVE_PLAYER":
+    case "PLAYER_LEFT_ROOM":
       return {
         ...state,
-        players: state.players.filter((p) => p.id !== action.playerId),
+        players: state.players.filter(p => p.id !== action.playerId),
+        creatorId: action.creatorId,
         error: null,
       };
 
     case "TRANSFER_CREATOR":
       return {
         ...state,
-        creatorId: action.playerId,
+        creatorId: action.creatorId,
         error: null,
       };
 
     case "UPDATE_PLAYER_READY":
       return {
         ...state,
-        players: state.players.map((player) =>
-          player.id === action.playerId ? { ...player, isReady: action.isReady } : player
-        ),
+        players: state.players.map(player => (player.id === action.playerId ? { ...player, isReady: action.isReady } : player)),
         error: null,
         isOperating: false,
       };
@@ -137,13 +136,13 @@ export const RoomProvider = ({ children }) => {
   });
 
   const { emitSafe, socket } = useSocket();
-  const { playerId, setRoomId, setGameId } = usePlayer();
+  const { playerId, setRoomId, setGameId, setIsReady } = usePlayer();
 
   // Socket event listeners
   useEffect(() => {
     if (!socket) return;
 
-    const handleRoomState = (roomData) => {
+    const handleRoomState = roomData => {
       console.log("Updating room state", roomData);
       dispatch({
         type: "UPDATE_ROOM",
@@ -156,34 +155,35 @@ export const RoomProvider = ({ children }) => {
       });
     };
 
-    const handleRoomPlayersUpdate = (playersData) => {
+    const handleRoomPlayersUpdate = playersData => {
       dispatch({
         type: "UPDATE_PLAYERS",
         players: playersData.players,
       });
     };
 
-    const handleRoomOperationError = (errorData) => {
+    const handleRoomOperationError = errorData => {
       console.error("Room operation error", errorData);
       dispatch({ type: "ROOM_OPERATION_ERROR", error: errorData.error });
     };
 
-    const handlePlayerJoined = (playerData) => {
+    const handlePlayerJoined = playerData => {
       dispatch({
         type: "ADD_PLAYER",
         player: playerData,
       });
     };
 
-    const handlePlayerLeft = (playerData) => {
-      console.log("Player left room", playerData);
+    const handlePlayerLeft = data => {
+      console.log("Player left room", data);
       dispatch({
-        type: "REMOVE_PLAYER",
-        playerId: playerData.id,
+        type: "PLAYER_LEFT_ROOM",
+        playerId: data.playerId,
+        creatorId: data.creatorId,
       });
     };
 
-    const handlePlayerReady = (readyData) => {
+    const handlePlayerReady = readyData => {
       dispatch({
         type: "UPDATE_PLAYER_READY",
         playerId: readyData.playerId,
@@ -191,7 +191,7 @@ export const RoomProvider = ({ children }) => {
       });
     };
 
-    const handleGameStarted = (gameData) => {
+    const handleGameStarted = gameData => {
       console.log("Game started", gameData);
       setGameId(gameData.id);
       dispatch({
@@ -216,10 +216,10 @@ export const RoomProvider = ({ children }) => {
       socket.off("player-left-room", handlePlayerLeft);
       socket.off("player-ready-changed", handlePlayerReady);
     };
-  }, [socket]);
+  }, [socket, state]);
 
   const fetchRoomData = useCallback(
-    (roomId) => {
+    roomId => {
       if (!socket) {
         dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
         return;
@@ -231,42 +231,9 @@ export const RoomProvider = ({ children }) => {
     [emitSafe, socket, playerId]
   );
 
-  const leaveRoom = useCallback(() => {
-    if (!socket) {
-      dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
-      return;
-    }
-
-    dispatch({ type: "ROOM_OPERATION_START" });
-
-    return new Promise((resolve) => {
-      const handleSucess = () => {
-        console.log("SUCCESS LEAVING ROOM");
-        cleanupListeners();
-        dispatch({ type: "CLEAR_ROOM" });
-        resolve({ success: true });
-        setRoomId("");
-      };
-
-      const handleError = (data) => {
-        cleanupListeners();
-        dispatch({ type: "ROOM_OPERATION_ERROR", error: data.error });
-        resolve({ success: false, error: data.error });
-      };
-
-      const cleanupListeners = () => {
-        socket.off("leave-room-success", handleSucess);
-        socket.off("leave-room-error", handleError);
-      };
-
-      socket.once("leave-room-success", handleSucess);
-      socket.once("leave-room-error", handleError);
-      socket.emit("leave-room");
-    });
-  }, [emitSafe, socket]);
-
-  const changeReady = useCallback(
-    (isReady) => {
+  const leaveRoom = useCallback(
+    roomId => {
+      console.log("Leaving room: ", state.id, "player: ", playerId);
       if (!socket) {
         dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
         return;
@@ -274,14 +241,52 @@ export const RoomProvider = ({ children }) => {
 
       dispatch({ type: "ROOM_OPERATION_START" });
 
-      return new Promise((resolve) => {
-        const handleSucess = (data) => {
+      return new Promise(resolve => {
+        const handleSucess = () => {
+          console.log("SUCCESS LEAVING ROOM");
+          cleanupListeners();
+          dispatch({ type: "CLEAR_ROOM" });
+          resolve({ success: true });
+          setRoomId("");
+          setIsReady(false);
+        };
+
+        const handleError = data => {
+          cleanupListeners();
+          dispatch({ type: "ROOM_OPERATION_ERROR", error: data.error });
+          resolve({ success: false, error: data.error });
+        };
+
+        const cleanupListeners = () => {
+          socket.off("leave-room-success", handleSucess);
+          socket.off("leave-room-error", handleError);
+        };
+
+        socket.once("leave-room-success", handleSucess);
+        socket.once("leave-room-error", handleError);
+        socket.emit("leave-room", { playerId: playerId, roomId: roomId });
+      });
+    },
+    [emitSafe, socket]
+  );
+
+  const changeReady = useCallback(
+    isReady => {
+      if (!socket) {
+        dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
+        return;
+      }
+
+      dispatch({ type: "ROOM_OPERATION_START" });
+
+      return new Promise(resolve => {
+        const handleSucess = data => {
           cleanupListeners();
           dispatch({ type: "UPDATE_PLAYER_READY", playerId: data.playerId, isReady: data.isReady });
           resolve({ success: true, isReady: data.isReady });
         };
 
-        const handleError = (data) => {
+        const handleError = data => {
           cleanupListeners();
           dispatch({ type: "ROOM_OPERATION_ERROR", error: data.error });
           resolve({ success: false, error: data.error });
@@ -313,8 +318,8 @@ export const RoomProvider = ({ children }) => {
 
     dispatch({ type: "ROOM_OPERATION_START" });
 
-    return new Promise((resolve) => {
-      const handleError = (data) => {
+    return new Promise(resolve => {
+      const handleError = data => {
         cleanupListeners();
         dispatch({ type: "ROOM_OPERATION_ERROR", error: data.error });
         resolve({ success: false, error: data.error });
@@ -333,6 +338,12 @@ export const RoomProvider = ({ children }) => {
     dispatch({ type: "CLEAR_ERRORS" });
   }, []);
 
+  const clearRoom = useCallback(() => {
+    dispatch({ type: "CLEAR_ROOM" });
+    setRoomId("");
+    setIsReady(false);
+  }, [dispatch, setRoomId]);
+
   const value = {
     room: {
       ...state,
@@ -343,6 +354,7 @@ export const RoomProvider = ({ children }) => {
     clearErrors,
     changeReady,
     startGame,
+    clearRoom,
   };
 
   return <RoomStateContext.Provider value={value}>{children}</RoomStateContext.Provider>;

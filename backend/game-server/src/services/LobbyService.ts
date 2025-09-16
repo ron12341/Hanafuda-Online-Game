@@ -1,13 +1,16 @@
 import { Player } from "@core/Player";
 import { Room } from "@core/Room";
-import { PlayerSession } from "@interfaces/session.interface";
-import { HanafudaIO, HanafudaSocket } from "@interfaces/socket.interface";
+import { HanafudaSocket } from "@interfaces/socket.interface";
 import { LobbyStateDTO } from "@interfaces/dtos/LobbyState.dto";
-import { ILobbyService } from "@interfaces/services.interface";
 import { ServiceContainer } from "./ServiceContainer";
 import { RoomSettings } from "@interfaces/room.interface";
 
-export class LobbyService implements ILobbyService {
+// Callback type definition
+interface CallbackFunction {
+  (response: { success: boolean; roomId?: string; error?: string }): void;
+}
+
+export class LobbyService {
   private waitingPlayers: Player[] = [];
   private rooms: Room[] = [];
   private broadcastDebounce: NodeJS.Timeout | null = null;
@@ -16,12 +19,15 @@ export class LobbyService implements ILobbyService {
 
   // Player management
   addPlayerToLobby(player: Player): void {
+    if (this.waitingPlayers.some(p => p.getId() === player.getId())) return;
+
+    player.joinLobby();
     this.waitingPlayers.push(player);
     this.broadcastLobbyState();
   }
 
   removePlayerFromLobby(playerId: string): void {
-    this.waitingPlayers = this.waitingPlayers.filter((player) => player.getId() !== playerId);
+    this.waitingPlayers = this.waitingPlayers.filter(player => player.getId() !== playerId);
     this.broadcastLobbyState();
   }
 
@@ -32,31 +38,31 @@ export class LobbyService implements ILobbyService {
   }
 
   removeRoomFromLobby(roomId: string): void {
-    this.rooms = this.rooms.filter((room) => room.getId() !== roomId);
+    this.rooms = this.rooms.filter(room => room.getId() !== roomId);
     this.broadcastLobbyState();
   }
 
   // Getters
   getPlayerById(playerId: string): Player | undefined {
-    return this.waitingPlayers.find((player) => player.getId() === playerId);
+    return this.waitingPlayers.find(player => player.getId() === playerId);
   }
 
   getRoomById(roomId: string): Room | undefined {
-    return this.rooms.find((room) => room.getId() === roomId);
+    return this.rooms.find(room => room.getId() === roomId);
   }
 
   getLobbyState(): LobbyStateDTO {
     return {
-      rooms: this.rooms.map((room) => ({
+      rooms: this.rooms.map(room => ({
         id: room.getId(),
         name: room.getName(),
         creatorId: room.getCreatorId(),
-        players: room.getPlayers().map((player) => player.getId()),
+        players: room.getPlayers().map(player => player.getId()),
         gameId: room.getGameId(),
         settings: room.getSettings(),
         status: room.getStatus(),
       })),
-      waitingPlayers: this.waitingPlayers.map((player) => ({
+      waitingPlayers: this.waitingPlayers.map(player => ({
         id: player.getId(),
         name: player.getName(),
       })),
@@ -64,57 +70,48 @@ export class LobbyService implements ILobbyService {
   }
 
   // Socket handlers
-  setupSocketHandlers(socket: HanafudaSocket) {
-    socket.on("request-lobby-state", () => {
-      this.handleLobbyStateRequest(socket);
-    });
-
-    socket.on("create-room", (data: { roomName: string; settings: RoomSettings }, callback: CallbackFunction) => {
-      this.handleCreateRoom(socket, data, callback);
-    });
-
-    socket.on("join-room", (data: { roomId: string }) => {
-      this.handleJoinRoom(socket, data);
-    });
+  setupSocketHandlers(socket: HanafudaSocket): void {
+    socket.on("request-lobby-state", () => this.handleLobbyStateRequest(socket));
+    socket.on("create-room", (data, callback) => this.handleCreateRoom(socket, data, callback));
+    socket.on("join-room", data => this.handleJoinRoom(socket, data));
   }
 
-  private handleLobbyStateRequest(socket: HanafudaSocket) {
+  private handleLobbyStateRequest(socket: HanafudaSocket): void {
     socket.emit("lobby-state", this.getLobbyState());
   }
 
-  private handleCreateRoom(
-    socket: HanafudaSocket,
-    data: { roomName: string; settings: RoomSettings },
-    callback: CallbackFunction
-  ) {
+  private handleCreateRoom(socket: HanafudaSocket, data: { roomName: string; settings: RoomSettings }, callback: CallbackFunction): void {
     try {
       const { roomName, settings } = data;
-
       const player = this.services.playerService.getPlayerById(socket.data.playerId);
+
       if (!player) {
         callback({ success: false, error: "Player not found" });
         return;
       }
 
-      const room = this.services.roomService.createRoom(player, roomName, settings);
-      this.removePlayerFromLobby(player.getId());
-
-      // Update session
-      if (socket.data.sessionToken) {
-        this.services.sessionService.updateSessionRoom(socket.data.sessionToken, room.getId());
+      if (player.getRoomId()) {
+        callback({ success: false, error: "Player is already in a room" });
+        return;
       }
 
-      socket.data.roomId = room.getId();
-      socket.join(room.getId());
+      const newRoom = this.services.roomService.createRoom(player, roomName, settings);
+      this.addRoomToLobby(newRoom);
+      this.removePlayerFromLobby(player.getId());
 
-      callback({ success: true, roomId: room.getId() });
+      socket.data.roomId = newRoom.getId();
+      socket.join(newRoom.getId());
+
+      callback({ success: true, roomId: newRoom.getId() });
     } catch (error: any) {
       callback({ success: false, error: error.message });
     }
   }
 
-  private handleJoinRoom(socket: HanafudaSocket, data: { roomId: string }) {
+  private handleJoinRoom(socket: HanafudaSocket, data: { roomId: string }): void {
     try {
+      console.log(`Join room attempt: player ${socket.data.playerId}, room ${data.roomId}`);
+
       const room = this.services.roomService.getRoomById(data.roomId);
       if (!room) {
         socket.emit("join-room-error", { error: "Room not found", roomId: data.roomId });
@@ -127,30 +124,27 @@ export class LobbyService implements ILobbyService {
         return;
       }
 
-      if (!room.addPlayer(player)) {
-        socket.emit("join-room-error", { error: "Room is full", roomId: data.roomId });
-        return;
-      }
-
+      // This will throw if validation fails
+      room.addPlayer(player);
       this.removePlayerFromLobby(player.getId());
-
-      // Update session
-      if (socket.data.sessionToken) {
-        this.services.sessionService.updateSessionRoom(socket.data.sessionToken, room.getId());
-      }
 
       socket.data.roomId = room.getId();
       socket.join(room.getId());
 
-      // Notify room
+      // Notify other players in the room
       socket.to(room.getId()).emit("player-joined-room", {
         id: player.getId(),
         name: player.getName(),
         isReady: player.getIsReady(),
       });
 
-      socket.emit("join-room-success", { roomId: room.getId() });
+      socket.emit("join-room-success", {
+        roomId: room.getId(),
+      });
+
+      console.log(`Player ${player.getId()} (${player.getName()}) successfully joined room ${room.getId()}`);
     } catch (error: any) {
+      console.error(`Error joining room: ${error.message}`, error);
       socket.emit("join-room-error", { error: error.message, roomId: data.roomId });
     }
   }
@@ -162,7 +156,8 @@ export class LobbyService implements ILobbyService {
     }
 
     this.broadcastDebounce = setTimeout(() => {
-      this.services.io.emit("lobby-state", this.getLobbyState());
+      const lobbyState = this.getLobbyState();
+      this.services.io.emit("lobby-state", lobbyState); // Broadcast to all connected clients
     }, 50);
   }
 
@@ -174,9 +169,4 @@ export class LobbyService implements ILobbyService {
   getRooms(): Room[] {
     return [...this.rooms];
   }
-}
-
-// Callback type definition
-interface CallbackFunction {
-  (response: { success: boolean; roomId?: string; error?: string }): void;
 }

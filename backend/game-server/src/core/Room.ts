@@ -1,6 +1,8 @@
 import { Player } from "./Player";
 import { RoomSettings } from "@interfaces/room.interface";
 import { generateId } from "@utils/generateId";
+import { Game } from "./Game";
+import { GameSettings } from "@interfaces/game.interface";
 
 export class Room {
   private id: string;
@@ -19,7 +21,7 @@ export class Room {
     this.creatorId = creator.getId();
     this.players = [creator];
     this.settings = {
-      maxPlayers: settings?.maxPlayers || 2,
+      maxPlayers: settings?.maxPlayers || 4,
       totalRounds: settings?.totalRounds || 3,
       visibility: settings?.visibility || "public",
       minPlayers: settings?.minPlayers || 3,
@@ -30,54 +32,49 @@ export class Room {
     creator.joinRoom(this.id);
   }
 
-  addPlayer(player: Player): boolean {
-    // Validate input
-    if (!player) {
-      console.error("Cannot add null player");
-      return false;
-    }
+  addPlayer(player: Player): void {
+    if (!player) throw new Error("Cannot add null player");
+    if (player.getRoomId()) throw new Error(`Player ${player.getId()} is already in room ${player.getRoomId()}`);
+    if (this.isFull()) throw new Error(`Room ${this.id} is full`);
 
-    // Check if already in a room
-    if (player.getRoomId()) {
-      console.error(`Player ${player.getId()} is already in room ${player.getRoomId()}`);
-      return false;
-    }
-
-    // Check if already in this room
-    if (this.players.some((p) => p.getId() === player.getId())) {
-      console.error(`Player ${player.getId()} is already in this room`);
-      return false;
-    }
-
-    // Check room capacity
-    if (this.players.length >= this.settings.maxPlayers) {
-      console.error(`Room ${this.id} is full`);
-      return false;
-    }
-
-    // Add player
     this.players.push(player);
-    player.setRoomId(this.id);
-
-    console.log(`Player ${player.getId()} joined room ${this.id}`);
-    return true;
+    player.joinRoom(this.id);
   }
 
   removePlayer(playerId: string): boolean {
-    const index = this.players.findIndex((p) => p.getId() === playerId);
+    const index = this.players.findIndex(p => p.getId() === playerId);
     if (index === -1) return false;
 
     const player = this.players[index];
-    player.setRoomId("");
-    player.setIsReady(false);
+    player.clearRoom();
     this.players.splice(index, 1);
 
     console.log(`Player ${playerId} left room ${this.id}`);
     return true;
   }
 
+  public startGame(starter: Player): Game {
+    if (this.status === "playing") throw new Error(`Room ${this.id} is already in a game`);
+    if (!this.hasPlayer(starter.getId())) throw new Error(`Player ${starter.getId()} is not in room ${this.id}`);
+    if (starter.getId() !== this.creatorId) throw new Error(`Only room creator can start the game`);
+    if (!this.isEveryoneReady()) throw new Error(`Not all players are ready in room ${this.id}`);
+
+    this.status = "playing";
+    const gameSettings: GameSettings = {
+      maxPlayers: this.settings.maxPlayers,
+      totalRounds: this.settings.totalRounds,
+      minPlayers: this.settings.minPlayers,
+    };
+
+    return new Game(this.id, this.players, gameSettings);
+  }
+
   hasPlayer(playerId: string): boolean {
-    return this.players.some((player) => player.getId() === playerId);
+    return this.players.some(player => player.getId() === playerId);
+  }
+
+  private isEveryoneReady(): boolean {
+    return this.players.every(player => player.getIsReady());
   }
 
   isFull(): boolean {
@@ -94,7 +91,7 @@ export class Room {
       id: this.id,
       name: this.name,
       creatorId: this.creatorId,
-      players: this.players.map((player) => {
+      players: this.players.map(player => {
         return {
           id: player.getId(),
           name: player.getName(),
@@ -106,11 +103,15 @@ export class Room {
     };
   }
 
-  private canStart(): boolean {
-    return this.players.every((player) => player.getIsReady() === true);
+  isEmpty(): boolean {
+    return this.players.length === 0;
   }
 
-  // Getters
+  transferCreator(newCreatorId: string): void {
+    this.creatorId = newCreatorId;
+  }
+
+  // Getters and Setters
   getId(): string {
     return this.id;
   }
@@ -141,5 +142,9 @@ export class Room {
 
   getGameId(): string | undefined {
     return this.gameId;
+  }
+
+  setStatus(status: "waiting" | "playing"): void {
+    this.status = status;
   }
 }

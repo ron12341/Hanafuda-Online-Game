@@ -1,8 +1,9 @@
 import { PlayerGameStateDTO, PlayerStateDTO } from "@interfaces/dtos/PlayerState.dto";
-import { PlayerGameData } from "@interfaces/player.interface";
+import { PlayerGameData, PlayerRoundResult } from "@interfaces/player.interface";
 import { HanafudaCard } from "./Card";
 
 export class Player {
+  private socketId: string;
   private id: string;
   private name: string;
   private status: "in-lobby" | "in-room" | "in-game";
@@ -19,6 +20,7 @@ export class Player {
     this.status = "in-lobby";
     this.isReady = false;
     this.connectionStatus = "connected";
+    this.socketId = socketId;
   }
 
   initializeGameData(): void {
@@ -26,10 +28,11 @@ export class Player {
       hand: [],
       captured: [],
       roundScores: [],
+      finalScore: 0,
     };
   }
 
-  moveTolobby(): void {
+  joinLobby(): void {
     this.status = "in-lobby";
     this.roomId = undefined;
     this.gameId = undefined;
@@ -45,6 +48,12 @@ export class Player {
     this.gameId = undefined;
     this.gameData = undefined;
     this.status = "in-room";
+  }
+
+  clearRoom(): void {
+    this.roomId = undefined;
+    this.isReady = false;
+    this.status = "in-lobby";
   }
 
   // Getters
@@ -129,6 +138,25 @@ export class Player {
     this.gameData!.hand = this.gameData!.hand.filter(c => c.id !== card.id);
   }
 
+  isHandEmpty(): boolean {
+    if (!this.gameData) throw new Error("Player has no game data.");
+    return this.gameData.hand.length === 0;
+  }
+
+  calculateRoundScore(): PlayerRoundResult {
+    if (!this.gameData) throw new Error("Player has no game data.");
+
+    let sum = 0;
+    for (const card of this.gameData.captured) {
+      sum += card.points;
+    }
+    this.gameData.captured = [];
+    this.gameData.roundScores.push(sum);
+    this.gameData.finalScore += sum;
+
+    return { playerId: this.id, username: this.name, score: sum };
+  }
+
   getState(): PlayerStateDTO {
     return {
       id: this.id,
@@ -147,5 +175,21 @@ export class Player {
       captured: this.gameData?.captured || [],
       roundScores: this.gameData?.roundScores || [],
     };
+  }
+
+  getSocketId(): string {
+    return this.socketId;
+  }
+
+  setSocketId(socketId: string): void {
+    this.socketId = socketId;
+  }
+
+  getUsername(): string {
+    return this.name;
+  }
+
+  getFinalScore(): number {
+    return this.gameData?.finalScore || 0;
   }
 }

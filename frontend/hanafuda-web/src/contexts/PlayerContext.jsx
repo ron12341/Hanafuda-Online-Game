@@ -25,7 +25,8 @@ export function PlayerProvider({ children }) {
     if (player.username || player.playerId || player.sessionToken) {
       const playerDataWithExpiry = {
         ...player,
-        _expiry: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days from now
+        // _expiry: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days from now
+        _expiry: Date.now() + 5 * 60 * 1000, // 5 minutes from now
       };
       localStorage.setItem("hanafuda-player", JSON.stringify(playerDataWithExpiry));
     } else {
@@ -66,8 +67,8 @@ export function PlayerProvider({ children }) {
   }, []);
 
   // Helper functions for updates
-  const updatePlayer = (updates) => {
-    setPlayer((prev) => ({ ...prev, ...updates }));
+  const updatePlayer = updates => {
+    setPlayer(prev => ({ ...prev, ...updates }));
   };
 
   const clearPlayer = () => {
@@ -84,18 +85,20 @@ export function PlayerProvider({ children }) {
   };
 
   // Specific setters for convenience
-  const setUsername = (username) => updatePlayer({ username });
-  const setPlayerId = (playerId) => updatePlayer({ playerId });
-  const setSessionToken = (sessionToken) => updatePlayer({ sessionToken });
-  const setRoomId = (roomId) => updatePlayer({ roomId });
-  const setGameId = (gameId) => updatePlayer({ gameId });
-  const setIsReady = (isReady) => updatePlayer({ isReady });
-  const setStatus = (status) => updatePlayer({ status });
+  const setUsername = username => updatePlayer({ username });
+  const setPlayerId = playerId => updatePlayer({ playerId });
+  const setSessionToken = sessionToken => updatePlayer({ sessionToken });
+  const setRoomId = roomId => updatePlayer({ roomId });
+  const setGameId = gameId => updatePlayer({ gameId });
+  const setIsReady = isReady => updatePlayer({ isReady });
+  const setStatus = status => updatePlayer({ status });
   const updateLastActive = () => updatePlayer({ lastActive: Date.now() });
 
   const value = {
-    // Player data
-    player,
+    player: {
+      ...player,
+      setGameId,
+    },
 
     // Individual values (for backward compatibility)
     username: player.username,

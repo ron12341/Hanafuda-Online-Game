@@ -1,14 +1,21 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useSocket } from "../contexts/SocketContext";
 import { usePlayer } from "../contexts/PlayerContext";
 import { useGame } from "../contexts/GameContext";
+import { useRoom } from "../contexts/RoomContext";
+
+import Card from "./components/Card";
+import RoundTransitionModal from "./components/RoundTransitionModal";
+import GameOverModal from "./components/GameOverModal";
+import CapturedCardsModal from "./components/CapturedCardsModal";
 
 export default function GamePage() {
   const { gameId } = useParams();
   const { isConnected } = useSocket();
   const { player } = usePlayer();
-  const { gameState, fetchGameData, playCard } = useGame();
+  const { gameState, fetchGameData, playCard, clearGame } = useGame();
+  const { clearRoom } = useRoom();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [myTurn, setMyTurn] = useState(false);
@@ -16,15 +23,10 @@ export default function GamePage() {
   const [selectedHandCard, setSelectedHandCard] = useState(null);
   const [filteredTableCards, setFilteredTableCards] = useState([]);
 
-  const [notification, setNotification] = useState("ROUND ENDED!");
+  const [showCapturedModal, setShowCapturedModal] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   const navigate = useNavigate();
-
-  const [gameData, setGameData] = useState({
-    deckCount: 24,
-    round: 10,
-    status: "Your Turn",
-  });
 
   // Check if flipped card should be automatically selected
   const shouldAutoSelectFlippedCard = gameState.flippedCard && myTurn;
@@ -35,69 +37,6 @@ export default function GamePage() {
       setSelectedHandCard(gameState.flippedCard);
     }
   }, [shouldAutoSelectFlippedCard, gameState.flippedCard]);
-
-  const Card = ({ card, onClick, selected = false, size = "medium", cardType = "hand", src, alt, isDisabled = false, isSelectable = false }) => {
-    // Define size classes
-    const sizeClasses = {
-      large: {
-        width: "w-24",
-        height: "h-48",
-      },
-      medium: {
-        width: "w-20",
-        height: "h-40",
-      },
-      small: {
-        width: "w-16",
-        height: "h-32",
-      },
-    };
-
-    const { width, height } = sizeClasses[size] || sizeClasses.medium;
-
-    // Determine card type behavior
-    const isHandCard = cardType === "hand";
-    const isFlippedCard = cardType === "flipped" || !card;
-    const isTableCard = cardType === "table";
-
-    // Determine interactivity - hand cards are disabled when flipped card exists
-    const shouldShowPointer = !isDisabled && (isHandCard || (isTableCard && isSelectable));
-    const isInteractive = shouldShowPointer && onClick;
-
-    // Handle image cards (if card exists and has image)
-    if (card && src && alt) {
-      return (
-        <div
-          className={`
-          rounded-lg shadow-lg flex flex-col justify-between transition-all duration-200
-          ${selected ? "ring-4 ring-yellow-400 transform -translate-y-2" : ""}
-          ${shouldShowPointer ? "cursor-pointer hover:-translate-y-1" : ""}
-          ${width} ${height}
-          ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}
-          ${handCardsDisabled && isHandCard ? "opacity-70 cursor-not-allowed" : ""}
-        `}
-          onClick={isInteractive ? onClick : undefined}
-        >
-          <img src={src} alt={alt} className="w-full h-full object-contain rounded-md" />
-        </div>
-      );
-    }
-
-    // Handle empty flipped card (when card is undefined)
-    if (isFlippedCard) {
-      return (
-        <div
-          className={`
-          ${width} ${height} pt-2 pb-2 ml-auto mr-auto
-        `}
-        >
-          <div className="w-full h-full bg-gray-800 rounded-md flex items-center justify-center shadow-lg transition-all duration-200 border-2 border-dashed border-yellow-400">
-            <p>Empty</p>
-          </div>
-        </div>
-      );
-    }
-  };
 
   const isSameMonth = (card1, card2) => {
     return card1.month === card2.month;
@@ -111,6 +50,11 @@ export default function GamePage() {
     } else {
       setSelectedHandCard(handCard);
     }
+  };
+
+  const handleShowCapturedCards = player => {
+    setSelectedPlayer(player);
+    setShowCapturedModal(true);
   };
 
   const handleCaptureCard = async targetCard => {
@@ -169,14 +113,24 @@ export default function GamePage() {
     setSelectedHandCard(null);
   };
 
+  const handleExitGame = () => {
+    // Navigate to a different route entirely to avoid the fetch
+    console.log("Navigate to /lobby");
+    navigate("/lobby", { replace: true });
+
+    // Then cleanup the game state
+    setTimeout(() => {
+      clearGame();
+      clearRoom();
+    }, 100);
+  };
+
   useEffect(() => {
     const filterTableCards = () => {
       if (!selectedHandCard) {
         setFilteredTableCards([]);
         return;
       }
-      console.log("SELECTED HAND CARD", selectedHandCard);
-      console.log("TABLE CARDS", gameState.table);
       setFilteredTableCards(gameState.table.filter(card => isSameMonth(card, selectedHandCard)));
     };
 
@@ -258,13 +212,6 @@ export default function GamePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 to-purple-900 text-white p-4 flex flex-col">
-      {/* Notification */}
-      {notification && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-black px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce">
-          {notification}
-        </div>
-      )}
-
       {/* Top Section */}
       <div className="bg-black bg-opacity-70 rounded-xl p-4 mb-4 shadow-lg">
         <div className="flex flex-col md:flex-row justify-between items-center">
@@ -318,7 +265,16 @@ export default function GamePage() {
         {gameState.players.map(gamePlayer => (
           <div
             key={gamePlayer.id}
-            className={`text-center px-4 py-2 rounded-lg ${gamePlayer.id === player.playerId ? "bg-blue-700" : "bg-gray-800"}`}
+            className={`
+        text-center px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200
+        border-2
+        ${
+          gamePlayer.id === player.playerId
+            ? "bg-blue-700 border-blue-500 hover:border-yellow-300"
+            : "bg-gray-800 border-gray-600 hover:border-yellow-400"
+        }
+      `}
+            onClick={() => handleShowCapturedCards(gamePlayer)}
           >
             <div className="font-semibold">{gamePlayer.name}</div>
             <div className="text-sm">Captured: {gamePlayer.captured.length}</div>
@@ -342,6 +298,7 @@ export default function GamePage() {
                   src={gameState.flippedCard.image}
                   alt={gameState.flippedCard.name}
                   cardType="flipped"
+                  handCardsDisabled={handCardsDisabled}
                 />
               ) : (
                 <Card card={undefined} size="medium" cardType="flipped" />
@@ -360,25 +317,24 @@ export default function GamePage() {
 
           {/* Table Cards */}
           <div className="flex-1 bg-black bg-opacity-30 rounded-lg p-4 flex flex-wrap justify-center items-center gap-4">
-            {gameState.table.map(
-              card => (
-                console.log("SELECTED HAND CARD", selectedHandCard),
-                card && (
-                  <Card
-                    key={card.id}
-                    card={card}
-                    onClick={() => handleCaptureCard(card)}
-                    selected={selectedHandCard?.id === card.id}
-                    size="medium"
-                    src={card.image}
-                    alt={card.name}
-                    isDisabled={selectedHandCard && !isSameMonth(selectedHandCard, card)}
-                    isSelectable={!!selectedHandCard}
-                    cardType="table"
-                  />
-                )
-              )
-            )}
+            {gameState.table &&
+              gameState.table.map(
+                card =>
+                  card && (
+                    <Card
+                      key={card.id}
+                      card={card}
+                      onClick={() => handleCaptureCard(card)}
+                      selected={selectedHandCard?.id === card.id}
+                      size="medium"
+                      src={card.image}
+                      alt={card.name}
+                      isDisabled={selectedHandCard && !isSameMonth(selectedHandCard, card)}
+                      isSelectable={!!selectedHandCard}
+                      cardType="table"
+                    />
+                  )
+              )}
           </div>
 
           {selectedHandCard && filteredTableCards.length <= 0 && myTurn && (
@@ -394,29 +350,6 @@ export default function GamePage() {
         </div>
       </div>
 
-      {/* My Cards */}
-      {/* <div className="bg-black bg-opacity-70 rounded-xl p-4 shadow-lg">
-        <div className="flex flex-col md:flex-row items-center">
-          <div className="flex-1">
-            <h2 className="text-green-300 font-semibold mb-3 text-center md:text-left">Your Hand</h2>
-            <div className="flex flex-wrap justify-center gap-3">
-              {gameState.myHand.map(card => (
-                <Card
-                  key={card.id}
-                  card={card}
-                  onClick={() => handleSelectHandCard(card)}
-                  selected={selectedHandCard?.id === card.id}
-                  size="medium"
-                  src={card.image}
-                  alt={card.name}
-                  cardType="hand"
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div> */}
-
       <div className="bg-black bg-opacity-70 rounded-xl p-4 shadow-lg">
         <div className="flex flex-col md:flex-row items-center">
           <div className="flex-1">
@@ -431,23 +364,50 @@ export default function GamePage() {
               )}
             </h2>
             <div className="flex flex-wrap justify-center gap-3">
-              {gameState.myHand.map(card => (
-                <Card
-                  key={card.id}
-                  card={card}
-                  onClick={() => handleSelectHandCard(card)}
-                  selected={selectedHandCard?.id === card.id}
-                  size="medium"
-                  src={card.image}
-                  alt={card.name}
-                  cardType="hand"
-                  isDisabled={handCardsDisabled} // Disable all hand cards
-                />
-              ))}
+              {gameState.myHand &&
+                gameState.myHand.map(card => (
+                  <Card
+                    key={card.id}
+                    card={card}
+                    onClick={() => handleSelectHandCard(card)}
+                    selected={selectedHandCard?.id === card.id}
+                    size="medium"
+                    src={card.image}
+                    alt={card.name}
+                    cardType="hand"
+                    isDisabled={handCardsDisabled}
+                  />
+                ))}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Round transition notification */}
+      {gameState.showRoundTransition && <RoundTransitionModal duration={5} roundResult={gameState.roundResult} />}
+
+      <GameOverModal
+        // isGameOver={gameState.isGameOver}
+        // winner={gameState.winner}
+        // scores={gameState.scores}
+        isGameOver={gameState.isGameOver}
+        winner={gameState.winner}
+        scores={gameState.finalScores}
+        onRestart={() => console.log("Restart game")}
+        onExit={handleExitGame}
+      />
+
+      {showCapturedModal && selectedPlayer && (
+        <CapturedCardsModal
+          isOpen={showCapturedModal}
+          onClose={() => {
+            setShowCapturedModal(false);
+            setSelectedPlayer(null);
+          }}
+          playerUsername={selectedPlayer?.name || ""}
+          capturedCards={selectedPlayer?.captured || []}
+        />
+      )}
     </div>
   );
 }

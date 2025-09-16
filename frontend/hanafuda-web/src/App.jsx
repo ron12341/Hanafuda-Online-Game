@@ -3,7 +3,7 @@ import { PlayerProvider } from "./contexts/PlayerContext";
 import { LobbyProvider } from "./contexts/LobbyContext";
 import { GameProvider } from "./contexts/GameContext";
 import Connect from "./pages/Connect";
-import LobbyPage from "./pages/LobbyPage";
+import LobbyPage from "./pages/lobby/LobbyPage";
 import RoomPage from "./pages/RoomPage";
 import GamePage from "./pages/GamePage";
 import { Routes, Route, BrowserRouter } from "react-router-dom";

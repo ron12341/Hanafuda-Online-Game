@@ -1,6 +1,6 @@
 import { Room } from "@core/Room";
 import { Player } from "@core/Player";
-import { HanafudaSocket, HanafudaIO } from "@interfaces/socket.interface";
+import { HanafudaSocket } from "@interfaces/socket.interface";
 import { ServiceContainer } from "./ServiceContainer";
 import { RoomSettings } from "@interfaces/room.interface";
 
@@ -9,53 +9,57 @@ export class RoomService {
 
   constructor(private services: ServiceContainer) {}
 
-  /**
-   * Creates a new room with the given creator and roomName.
-   * @param {Player} creator The player who creates the room.
-   * @param {string} roomName The name of the room.
-   * @return {Room} The room object.
-   */
-  createRoom(creator: Player, roomName: string, settings?: RoomSettings): Room {
+  //
+  // PUBLIC METHODS
+  //
+
+  public setupSocketHandlers(socket: HanafudaSocket): void {
+    socket.on("request-room-state", data => this.handleRoomStateRequest(socket, data));
+    socket.on("leave-room", data => this.handleLeaveRoom(socket, data));
+    socket.on("ready-change", data => this.handleReadyChange(socket, data));
+    socket.on("start-game", () => this.handleStartGame(socket));
+  }
+
+  // Room management
+  public createRoom(creator: Player, roomName: string, settings?: RoomSettings): Room {
     const room = new Room(roomName, creator, settings);
     this.rooms.set(room.getId(), room);
-    this.services.lobbyService.addRoomToLobby(room);
-
     return room;
   }
 
-  removeRoom(roomId: string): void {
+  public removeRoom(roomId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    // Return all players to lobby
+    room.getPlayers().forEach(player => {
+      player.clearRoom();
+      this.services.lobbyService.addPlayerToLobby(player);
+    });
+
     this.rooms.delete(roomId);
     this.services.lobbyService.removeRoomFromLobby(roomId);
   }
 
-  getRoomById(roomId: string): Room | undefined {
+  public getRoomById(roomId: string): Room | undefined {
     return this.rooms.get(roomId);
   }
 
-  removePlayerFromRoom(roomId: string, playerId: string): void {
+  public removePlayerFromRoom(roomId: string, playerId: string): void {
     const room = this.rooms.get(roomId);
-    if (room) room.removePlayer(playerId);
+    if (room) {
+      room.removePlayer(playerId);
+
+      // If room becomes empty, remove it
+      if (room.isEmpty()) {
+        this.removeRoom(roomId);
+      }
+    }
   }
 
-  setupSocketHandlers(socket: HanafudaSocket) {
-    socket.on("request-room-state", (data: { playerId: string; roomId: string }) => {
-      this.handleRoomStateRequest(socket, data);
-    });
+  // Socket handlers
 
-    socket.on("leave-room", () => {
-      this.handleLeaveRoom(socket);
-    });
-
-    socket.on("ready-change", (data: { isReady: boolean }) => {
-      this.handleReadyChange(socket, data);
-    });
-
-    socket.on("start-game", () => {
-      this.handleStartGame(socket);
-    });
-  }
-
-  private handleRoomStateRequest(socket: HanafudaSocket, data: { playerId: string; roomId: string }) {
+  private handleRoomStateRequest(socket: HanafudaSocket, data: { playerId: string; roomId: string }): void {
     const room = this.getRoomById(data.roomId);
     if (!room) {
       socket.emit("room-state-error", { error: "Room not found", roomId: data.roomId });
@@ -70,42 +74,77 @@ export class RoomService {
     socket.emit("room-state", room.getState());
   }
 
-  private handleLeaveRoom(socket: HanafudaSocket) {
+  private handleLeaveRoom(socket: HanafudaSocket, data: { playerId: string; roomId: string }): void {
     try {
-      if (!socket.data.roomId) {
-        socket.emit("leave-room-error", { error: "Player not in room" });
+      const { playerId, roomId } = data;
+
+      // Validate parameters
+      if (!roomId || !playerId) {
+        socket.emit("leave-room-error", { error: "Missing roomId or playerId" });
         return;
       }
 
-      const room = this.getRoomById(socket.data.roomId);
-      const player = this.services.playerService.getPlayerById(socket.data.playerId);
+      // Security check: verify socket ownership
+      if (socket.data.playerId !== playerId) {
+        socket.emit("leave-room-error", { error: "Unauthorized operation" });
+        return;
+      }
+
+      const room = this.getRoomById(roomId);
+      const player = this.services.playerService.getPlayerById(playerId);
 
       if (!room || !player) {
         socket.emit("leave-room-error", { error: "Room or player not found" });
         return;
       }
 
-      if (room.removePlayer(player.getId())) {
+      // Ensure player is actually in this room
+      if (!room.hasPlayer(playerId)) {
+        socket.emit("leave-room-error", { error: "Player not in specified room" });
+        return;
+      }
+
+      // Remove player from room
+      if (room.removePlayer(playerId)) {
+        // Add player back to lobby
         this.services.lobbyService.addPlayerToLobby(player);
 
-        // Update session
-        if (socket.data.sessionToken) {
-          this.services.sessionService.updateSessionRoom(socket.data.sessionToken, undefined);
+        // Update socket data
+        if (socket.data.roomId === roomId) {
+          socket.data.roomId = undefined;
+        }
+        socket.leave(roomId);
+
+        // Handle room creator transfer if needed
+        if (playerId === room.getCreatorId() && !room.isEmpty()) {
+          const newCreator = room.getPlayers()[0];
+          if (newCreator) {
+            room.transferCreator(newCreator.getId());
+          }
         }
 
-        socket.data.roomId = undefined;
-        socket.leave(room.getId());
+        // Notify remaining players in the room
+        socket.to(roomId).emit("player-left-room", {
+          playerId: playerId,
+          creatorId: room.getCreatorId(),
+        });
 
-        // Notify room
-        this.services.io.to(room.getId()).emit("player-left-room", { id: player.getId() });
-        socket.emit("leave-room-success", { roomId: room.getId() });
+        // Remove room if empty
+        if (room.isEmpty()) {
+          this.removeRoom(roomId);
+        }
+
+        socket.emit("leave-room-success", {
+          roomId: roomId,
+        });
       }
     } catch (error: any) {
-      socket.emit("leave-room-error", { error: error.message });
+      console.error("Error in handleLeaveRoom:", error);
+      socket.emit("leave-room-error", { error: "Internal server error" });
     }
   }
 
-  private handleReadyChange(socket: HanafudaSocket, data: { isReady: boolean }) {
+  private handleReadyChange(socket: HanafudaSocket, data: { isReady: boolean }): void {
     try {
       const player = this.services.playerService.getPlayerById(socket.data.playerId);
       if (!player || !player.getRoomId()) {
@@ -113,26 +152,33 @@ export class RoomService {
         return;
       }
 
+      const roomId = player.getRoomId();
+      if (!roomId) {
+        socket.emit("ready-change-error", { error: "Player not in room" });
+        return;
+      }
+
       player.setIsReady(data.isReady);
 
-      // Update session
+      // Update session if exists
       if (socket.data.sessionToken) {
         this.services.sessionService.updateSessionReadyStatus(socket.data.sessionToken, data.isReady);
       }
 
-      // Notify room
-      this.services.io.to(player.getRoomId() ?? "").emit("player-ready-changed", {
+      // Notify all players in the room
+      this.services.io.to(roomId).emit("player-ready-changed", {
         playerId: player.getId(),
         isReady: data.isReady,
       });
 
       socket.emit("ready-change-success", { isReady: data.isReady, playerId: player.getId() });
     } catch (error: any) {
-      socket.emit("ready-change-error", { error: error.message });
+      console.error("Error in handleReadyChange:", error);
+      socket.emit("ready-change-error", { error: "Internal server error" });
     }
   }
 
-  private handleStartGame(socket: HanafudaSocket) {
+  private handleStartGame(socket: HanafudaSocket): void {
     try {
       if (!socket.data.roomId) {
         socket.emit("start-game-error", { error: "Player not in room" });
@@ -147,47 +193,16 @@ export class RoomService {
         return;
       }
 
-      // Check if player is room creator
-      if (room.getCreatorId() !== player.getId()) {
-        socket.emit("start-game-error", { error: "Only room creator can start the game" });
-        return;
-      }
+      const newGame = room.startGame(player);
+      this.services.gameService.addGame(newGame);
 
-      // Check if all players are ready
-      const allPlayersReady = room.getPlayers().every((p) => p.getIsReady());
-      if (!allPlayersReady) {
-        socket.emit("start-game-error", { error: "All players must be ready to start" });
-        return;
-      }
-
-      // Start game through game service
-      const game = this.services.gameService.createGame(room.getId(), room.getPlayers());
-
-      // Notify room
+      // Notify all players in the room
       this.services.io.to(room.getId()).emit("game-started", {
-        gameId: game.getId(),
+        gameId: newGame.getId(),
       });
     } catch (error: any) {
+      console.error("Error in handleStartGame:", error);
       socket.emit("start-game-error", { error: error.message });
     }
-  }
-
-  // handlePlayerReconnection(socket: HanafudaSocket, roomId: string) {
-  //   socket.join(roomId);
-  //   this.services.io.to(roomId).emit("player-reconnected", {
-  //     playerId: socket.data.playerId,
-  //     username: socket.data.username,
-  //   });
-  // }
-
-  // Helper methods
-  getAllRooms(): Room[] {
-    return Array.from(this.rooms.values());
-  }
-
-  getRoomByPlayerId(playerId: string): Room | undefined {
-    return Array.from(this.rooms.values()).find((room) =>
-      room.getPlayers().some((player) => player.getId() === playerId)
-    );
   }
 }

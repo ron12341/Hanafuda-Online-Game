@@ -82,7 +82,7 @@ export const LobbyProvider = ({ children }) => {
   const { emitSafe, socket, isConnected } = useSocket();
   const { setRoomId } = usePlayer();
 
-  const handleLobbyState = (lobbyData) => {
+  const handleLobbyState = lobbyData => {
     console.log("Updating lobby state", lobbyData);
     dispatch({
       type: "UPDATE_LOBBY",
@@ -91,11 +91,11 @@ export const LobbyProvider = ({ children }) => {
     });
   };
 
-  const handleUpdateRooms = (lobbyData) => {
+  const handleUpdateRooms = lobbyData => {
     dispatch({ type: "UPDATE_ROOMS", rooms: lobbyData.rooms });
   };
 
-  const handleUpdateWaitingPlayers = (lobbyData) => {
+  const handleUpdateWaitingPlayers = lobbyData => {
     dispatch({ type: "UPDATE_WAITING_PLAYERS", waitingPlayers: lobbyData.waitingPlayers });
   };
 
@@ -103,7 +103,7 @@ export const LobbyProvider = ({ children }) => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleRoomOperationError = (errorData) => {
+    const handleRoomOperationError = errorData => {
       dispatch({ type: "ROOM_OPERATION_ERROR", error: errorData.error });
     };
 
@@ -137,8 +137,8 @@ export const LobbyProvider = ({ children }) => {
 
       dispatch({ type: "ROOM_OPERATION_START" });
 
-      return new Promise((resolve) => {
-        emitSafe("create-room", { roomName, settings }, (response) => {
+      return new Promise(resolve => {
+        emitSafe("create-room", { roomName, settings }, response => {
           if (response.success) {
             setRoomId(response.roomId);
             dispatch({ type: "ROOM_OPERATION_SUCCESS" });
@@ -154,15 +154,16 @@ export const LobbyProvider = ({ children }) => {
   );
 
   const joinRoom = useCallback(
-    async (roomId) => {
+    async roomId => {
+      console.log("Joining room", roomId);
       if (!socket) {
         return { success: false, error: "Not connected to server" };
       }
 
       dispatch({ type: "ROOM_OPERATION_START" });
 
-      return new Promise((resolve) => {
-        const handleSuccess = (data) => {
+      return new Promise(resolve => {
+        const handleSuccess = data => {
           socket.off("join-room-sucess", handleSuccess);
           socket.off("join-room-error", handleError);
 
@@ -171,7 +172,7 @@ export const LobbyProvider = ({ children }) => {
           resolve({ success: true, roomId: data.roomId });
         };
 
-        const handleError = (data) => {
+        const handleError = data => {
           socket.off("join-room-sucess", handleSuccess);
           socket.off("join-room-error", handleError);
 
@@ -184,13 +185,13 @@ export const LobbyProvider = ({ children }) => {
 
         emitSafe("join-room", { roomId });
 
-        setTimeout(() => {
-          socket.off("join-room-success", handleSuccess);
-          socket.off("join-room-error", handleError);
+        // setTimeout(() => {
+        //   socket.off("join-room-success", handleSuccess);
+        //   socket.off("join-room-error", handleError);
 
-          dispatch({ type: "ROOM_OPERATION_ERROR", error: "Request timeout" });
-          resolve({ success: false, error: "Request timeout", roomId });
-        }, 5000);
+        //   dispatch({ type: "ROOM_OPERATION_ERROR", error: "Request timeout" });
+        //   resolve({ success: false, error: "Request timeout", roomId });
+        // }, 5000);
       });
     },
     [emitSafe, socket, setRoomId]
