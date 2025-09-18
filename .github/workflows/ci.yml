@@ -4,12 +4,12 @@ on:
   push:
     branches: [ main, develop ]
     paths:
-      - 'backend/game-server/**'  # Only run if files in the backend server change
-      - '.github/workflows/ci.yml' # Also run if the workflow itself changes
+      - 'backend/game-server/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [ main ]
     paths:
-      - 'backend/game-server/**'  # Only run if files in the backend server change
+      - 'backend/game-server/**'
 
 jobs:
   verify-backend:
@@ -32,13 +32,13 @@ jobs:
         with:
           node-version: '20.x'
           cache: 'npm'
-          cache-dependency-path: './backend/game-server/package-lock.json' # Crucial: Only cache the backend deps
-
+          cache-dependency-path: './backend/game-server/package-lock.json'
+          
       # 3. Install backend dependencies
       - name: Install Dependencies
         run: npm ci
 
-      # 4. (Optional) Run Linter for the backend
+      # 4. Run Linter for the backend
       - name: Run Linter
         run: npm run lint --if-present
 
