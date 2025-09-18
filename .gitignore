@@ -54,4 +54,10 @@
 /packages/frontend-web/.svelte-kit/
 /packages/frontend-web/*.css.map
 
+
+# TESTING
+coverage
+tests/
+jest.config.ts
+
 *.txt

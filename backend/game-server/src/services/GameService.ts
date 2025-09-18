@@ -75,8 +75,6 @@ export class GameService {
       cardType: string;
     }
   ) {
-    console.log("Play card: ", data);
-
     if (!this.validatePlayCardData(data)) {
       socket.emit("play-card-error", { error: "Invalid request data" });
       return;

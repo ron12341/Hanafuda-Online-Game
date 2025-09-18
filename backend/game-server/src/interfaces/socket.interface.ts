@@ -142,6 +142,9 @@ export interface ServerToClientEvents {
 
   // Ping Events
   pong: () => void;
+
+  // Test Events
+  calledWith: (data: { message: string }) => void;
 }
 
 //

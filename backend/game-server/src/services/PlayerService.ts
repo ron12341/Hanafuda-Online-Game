@@ -18,10 +18,6 @@ export class PlayerService {
   }
 
   getPlayerByUsername(username: string): Player | undefined {
-    return Array.from(this.players.values()).find((player) => player.getName() === username);
-  }
-
-  getPlayers(): Player[] {
-    return Array.from(this.players.values());
+    return Array.from(this.players.values()).find(player => player.getName() === username);
   }
 }

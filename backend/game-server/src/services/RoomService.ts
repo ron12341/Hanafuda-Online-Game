@@ -182,6 +182,7 @@ export class RoomService {
     try {
       if (!socket.data.roomId) {
         socket.emit("start-game-error", { error: "Player not in room" });
+        console.log(socket.data);
         return;
       }
 

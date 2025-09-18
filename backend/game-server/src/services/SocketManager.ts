@@ -22,7 +22,7 @@ export class SocketManager {
 
       // Handle reconnection or new connection through SessionService
       if (sessionToken && this.services.sessionService.hasSession(sessionToken)) {
-        console.log("Reconnecting player: ", username);
+        console.log("Reconnecting player: ", username, sessionToken);
         this.services.sessionService.handleReconnection(socket, sessionToken);
       } else {
         console.log("New player: ", username);
@@ -76,7 +76,8 @@ export class SocketManager {
     const ip = socket.handshake.address;
     const attempts = this.connectionAttempts.get(ip) || 0;
 
-    if (attempts > 5) {
+    if (attempts > 10) {
+      console.log(`Too many connection attempts from IP ${ip} (${attempts})`);
       socket.disconnect();
       return;
     }

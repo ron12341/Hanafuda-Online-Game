@@ -95,6 +95,8 @@ export class SessionService {
         playerId: player.getId(),
         username: player.getName(),
         status: player.getStatus(),
+        roomId: player.getRoomId(),
+        gameId: player.getGameId(),
         sessionToken: sessionToken,
       };
 
@@ -172,10 +174,6 @@ export class SessionService {
     return this.sessions.get(sessionToken);
   }
 
-  private removeSession(sessionToken: string) {
-    this.sessions.delete(sessionToken);
-  }
-
   private addSession(sessionToken: string, session: PlayerSession) {
     this.sessions.set(sessionToken, session);
   }
@@ -192,11 +190,10 @@ export class SessionService {
     console.log(`Cleaning up expired session for: ${session.username}`);
 
     const player = this.services.playerService.getPlayerById(session.playerId);
-    if (!player) return;
+    // if (!player) return;
 
     // Remove from services
-
-    if (player.getRoomId()) {
+    if (player?.getRoomId()) {
       this.services.roomService.removePlayerFromRoom(player.getRoomId()!, player.getId());
     }
 

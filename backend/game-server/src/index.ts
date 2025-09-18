@@ -1,14 +1,11 @@
 import { Server } from "socket.io";
 import { createServer } from "http";
 import { HanafudaIO } from "@interfaces/socket.interface";
-
-import { PlayerService } from "./services/PlayerService";
-import { LobbyService } from "@services/LobbyService";
-import { RoomService } from "@services/RoomService";
-import { GameService } from "@services/GameService";
-import { SocketManager } from "@services/SocketManager";
-import { SessionService } from "@services/SessionService";
 import { ServiceContainer } from "@services/ServiceContainer";
+import dotenv from "dotenv";
+
+// Load environment variables from .env file
+dotenv.config();
 
 const httpServer = createServer();
 const io: HanafudaIO = new Server(httpServer, {
@@ -22,4 +19,5 @@ const io: HanafudaIO = new Server(httpServer, {
 const services = new ServiceContainer(io);
 services.initialize();
 
-httpServer.listen(3001, () => console.log("Listening on port 3001"));
+const PORT = process.env.PORT || 3000;
+httpServer.listen(PORT, () => console.log("Listening on port " + PORT));
