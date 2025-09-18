@@ -1,0 +1,47 @@
+name: CI - Build and Type Check (Backend)
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/game-server/**'  # Only run if files in the backend server change
+      - '.github/workflows/ci.yml' # Also run if the workflow itself changes
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend/game-server/**'  # Only run if files in the backend server change
+
+jobs:
+  verify-backend:
+    name: Verify Backend Build
+    runs-on: ubuntu-latest
+
+    # Set the default working directory for all steps in this job
+    defaults:
+      run:
+        working-directory: ./backend/game-server
+
+    steps:
+      # 1. Checkout the entire monorepo
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Set up Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: './backend/game-server/package-lock.json' # Crucial: Only cache the backend deps
+
+      # 3. Install backend dependencies
+      - name: Install Dependencies
+        run: npm ci
+
+      # 4. (Optional) Run Linter for the backend
+      - name: Run Linter
+        run: npm run lint --if-present
+
+      # 5. TypeScript check for the backend
+      - name: TypeScript Compiler Check
+        run: npx tsc --noEmit --skipLibCheck
