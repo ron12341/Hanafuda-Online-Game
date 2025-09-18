@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "dev": "ts-node -r tsconfig-paths/register src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
     "test": "jest",
     "test:unit": "jest tests/unit/",
     "test:integration": "jest tests/integration/",
@@ -20,6 +23,7 @@
   "dependencies": {
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "module-alias": "^2.2.3",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
@@ -36,5 +40,11 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.2"
+  },
+  "_moduleAliases": {
+    "@services": "dist/services",
+    "@interfaces": "dist/interfaces",
+    "@core": "dist/core",
+    "@utils": "dist/utils"
   }
 }

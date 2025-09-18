@@ -1,3 +1,4 @@
+import "module-alias/register";
 import { Server } from "socket.io";
 import { createServer } from "http";
 import { HanafudaIO } from "@interfaces/socket.interface";
