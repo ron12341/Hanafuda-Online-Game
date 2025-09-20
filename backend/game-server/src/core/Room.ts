@@ -41,16 +41,21 @@ export class Room {
     player.joinRoom(this.id);
   }
 
-  removePlayer(playerId: string): boolean {
+  removePlayer(playerId: string): void {
     const index = this.players.findIndex(p => p.getId() === playerId);
-    if (index === -1) return false;
+    if (index === -1) return;
 
     const player = this.players[index];
     player.clearRoom();
     this.players.splice(index, 1);
 
+    // If the removed player was the creator, transfer ownership
+    if (playerId === this.creatorId && this.players.length > 0) {
+      this.creatorId = this.players[0].getId();
+      console.log(`Room ${this.id} creator left. Transferred ownership to ${this.creatorId}`);
+    }
+
     console.log(`Player ${playerId} left room ${this.id}`);
-    return true;
   }
 
   public startGame(starter: Player): Game {
@@ -66,6 +71,7 @@ export class Room {
       minPlayers: this.settings.minPlayers,
     };
 
+    this.gameId = this.id; // Use the same ID for the game as the room
     return new Game(this.id, this.players, gameSettings);
   }
 

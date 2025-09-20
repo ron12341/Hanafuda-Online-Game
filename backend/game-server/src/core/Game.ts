@@ -31,6 +31,9 @@ export class Game {
   // Game Settings
   private settings: GameSettings;
 
+  // Active Game Flag
+  private lastActivityTimestamp: number = Date.now();
+
   constructor(roomId: string, players: Player[], settings?: GameSettings) {
     this.id = roomId; // use the same id as the roomId
     this.roomId = roomId;
@@ -76,6 +79,8 @@ export class Game {
     this.players.forEach(player => player.initializeGameData());
     this.initializeDeck();
     this.dealCards();
+
+    this.updateLastActivity();
   }
 
   public endRound(): PlayerRoundResult[] {
@@ -92,6 +97,7 @@ export class Game {
     this.currentRound += 1;
     this.initializeDeck();
     this.dealCards();
+    this.updateLastActivity();
   }
 
   //
@@ -110,6 +116,8 @@ export class Game {
     this.removeCardFromTable(targetCardId);
     this.drawFlippedCard();
 
+    this.updateLastActivity();
+
     return { handCard, targetCard, flippedCard: this.flippedCard! };
   }
 
@@ -122,6 +130,8 @@ export class Game {
     player.discard(handCard);
     this.addCardToTable(handCard);
     this.drawFlippedCard();
+
+    this.updateLastActivity();
 
     return { handCard, flippedCard: this.flippedCard! };
   }
@@ -142,6 +152,8 @@ export class Game {
     this.clearFlippedCard();
     this.nextTurn();
 
+    this.updateLastActivity();
+
     return { targetCardId: targetCard.id, currentTurnIndex: this.currentTurnIndex };
   }
 
@@ -154,6 +166,8 @@ export class Game {
     this.addCardToTable(this.flippedCard!);
     this.clearFlippedCard();
     this.nextTurn();
+
+    this.updateLastActivity();
 
     return { currentTurnIndex: this.currentTurnIndex };
   }
@@ -210,6 +224,14 @@ export class Game {
     };
   }
 
+  public getLastActivityTimestamp(): number {
+    return this.lastActivityTimestamp;
+  }
+
+  public removePlayer(playerId: string): void {
+    this.players = this.players.filter(player => player.getId() !== playerId);
+  }
+
   //
   //  PRIVATE METHODS
   //
@@ -249,6 +271,10 @@ export class Game {
     });
   }
 
+  private updateLastActivity(): void {
+    this.lastActivityTimestamp = Date.now();
+  }
+
   //  CARD MANAGEMENT METHODS
   private initializeDeck(): void {
     this.deck = new HanafudaDeck();
@@ -256,8 +282,18 @@ export class Game {
   }
 
   private dealCards(): void {
-    const cardsPerPlayer = 7;
-    const tableCards = 6;
+    let cardsPerPlayer: number;
+    let tableCards: number;
+
+    if (this.players.length === 3) {
+      cardsPerPlayer = 7;
+      tableCards = 6;
+    } else if (this.players.length === 4) {
+      cardsPerPlayer = 6;
+      tableCards = 8;
+    } else {
+      throw new Error("Unsupported number of players for dealing cards.");
+    }
 
     this.players.forEach(player => player.setHand(this.deck.deal(cardsPerPlayer)));
     this.table = this.deck.deal(tableCards);

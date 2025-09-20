@@ -2,11 +2,16 @@ import { HanafudaSocket } from "@interfaces/socket.interface";
 import { PlayerSession } from "../interfaces/session.interface";
 import { ServiceContainer } from "./ServiceContainer";
 
+const RECONNECTION_WINDOW = 30000; // 30 seconds
+const ZOMBIE_TIMEOUT = 30000; // 30 seconds
+
 export class SessionService {
   private sessions: Map<string, PlayerSession> = new Map<string, PlayerSession>();
   private sessionTimeouts = new Map<string, NodeJS.Timeout>();
 
-  constructor(private services: ServiceContainer) {}
+  constructor(private services: ServiceContainer) {
+    this.intervalCleanup();
+  }
 
   //
   //  PUBLIC METHODS
@@ -132,11 +137,11 @@ export class SessionService {
   }
 
   public handleDisconnection(sessionToken: string) {
+    console.log(`Handling disconnection for session: ${sessionToken}`);
     const session = this.getSession(sessionToken);
     if (!session) return;
 
-    session.isConnected = false;
-    session.lastActive = Date.now();
+    this.updateSession(sessionToken, { isConnected: false, lastActive: Date.now() });
 
     // Schedule cleanup
     this.clearSessionTimeout(sessionToken);
@@ -156,18 +161,19 @@ export class SessionService {
     this.updateSession(sessionToken, { isReady });
   }
 
+  public updateSessionActivity(sessionToken: string) {
+    this.updateSession(sessionToken, { lastActive: Date.now() });
+  }
+
   //
   //  PRIVATE METHODS
   //
 
   // Session management methods
-  private updateSession(sessionToken: string, updates: Partial<PlayerSession>) {
+  private updateSession(sessionToken: string, updates: Partial<PlayerSession>): void {
     const session = this.sessions.get(sessionToken);
-    if (session) {
-      this.sessions.set(sessionToken, { ...session, ...updates });
-      return true;
-    }
-    return false;
+    if (!session) return;
+    this.sessions.set(sessionToken, { ...session, ...updates });
   }
 
   private getSession(sessionToken: string) {
@@ -194,7 +200,21 @@ export class SessionService {
 
     // Remove from services
     if (player?.getRoomId()) {
-      this.services.roomService.removePlayerFromRoom(player.getRoomId()!, player.getId());
+      const room = this.services.roomService.getRoomById(player.getRoomId()!);
+      if (room) {
+        this.services.roomService.removePlayerFromRoom(room?.getId()!, player.getId());
+        this.services.io.to(room?.getId()!).emit("player-left-room", {
+          playerId: player.getId(),
+          creatorId: room?.getCreatorId()!,
+        });
+      }
+    }
+
+    if (player?.getGameId()) {
+      const game = this.services.gameService.getGameById(player.getGameId()!);
+      if (game) {
+        this.services.gameService.removePlayerFromGame(game, player.getId());
+      }
     }
 
     this.services.playerService.removePlayerById(session.playerId);
@@ -211,5 +231,38 @@ export class SessionService {
       clearTimeout(timeout);
       this.sessionTimeouts.delete(sessionToken);
     }
+  }
+
+  private intervalCleanup() {
+    setInterval(() => {
+      const now = Date.now();
+      // A disconnected player has 5 minutes to reconnect (e.g., refresh page)
+      const RECONNECTION_WINDOW = 5 * 60 * 1000; // 5 minutes
+
+      // A connected player can be idle for 3 minutes before being marked as a zombie
+      const ZOMBIE_GRACE_PERIOD = 10 * 60 * 1000; // 10 minutes
+
+      this.sessions.forEach((session, token) => {
+        const timeSinceActive = now - session.lastActive;
+
+        if (!session.isConnected && timeSinceActive > RECONNECTION_WINDOW) {
+          this.cleanupExpiredSession(token);
+          return;
+        }
+
+        if (session.isConnected && timeSinceActive > ZOMBIE_GRACE_PERIOD) {
+          console.log(`Player ${session.username} inactive for 10+ minutes. Marking as disconnected.`);
+          session.isConnected = false;
+          const player = this.services.playerService.getPlayerById(session.playerId);
+          if (player) {
+            player.setConnectionStatus("disconnected");
+          }
+        }
+      });
+    }, 1 * 60 * 1000); // 1 minute
+  }
+
+  public getAllSessions(): PlayerSession[] {
+    return Array.from(this.sessions.values());
   }
 }

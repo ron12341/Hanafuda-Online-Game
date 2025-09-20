@@ -14,6 +14,8 @@ const io: HanafudaIO = new Server(httpServer, {
     origin: "*",
     methods: ["GET", "POST"],
   },
+  pingTimeout: 20000,
+  pingInterval: 10000,
 });
 
 // Initialize services

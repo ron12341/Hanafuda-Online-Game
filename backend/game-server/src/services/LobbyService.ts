@@ -78,6 +78,7 @@ export class LobbyService {
 
   private handleLobbyStateRequest(socket: HanafudaSocket): void {
     socket.emit("lobby-state", this.getLobbyState());
+    this.services.sessionService.updateSessionActivity(socket.data.sessionToken!);
   }
 
   private handleCreateRoom(socket: HanafudaSocket, data: { roomName: string; settings: RoomSettings }, callback: CallbackFunction): void {
@@ -103,6 +104,7 @@ export class LobbyService {
       socket.join(newRoom.getId());
 
       callback({ success: true, roomId: newRoom.getId() });
+      this.services.sessionService.updateSessionActivity(socket.data.sessionToken!);
     } catch (error: any) {
       callback({ success: false, error: error.message });
     }
@@ -143,6 +145,7 @@ export class LobbyService {
       });
 
       console.log(`Player ${player.getId()} (${player.getName()}) successfully joined room ${room.getId()}`);
+      this.services.sessionService.updateSessionActivity(socket.data.sessionToken!);
     } catch (error: any) {
       console.error(`Error joining room: ${error.message}`, error);
       socket.emit("join-room-error", { error: error.message, roomId: data.roomId });

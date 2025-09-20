@@ -14,7 +14,9 @@ import { PlayerRoundResult } from "@interfaces/player.interface";
 export class GameService {
   private games: Map<string, Game> = new Map<string, Game>();
 
-  constructor(private services: ServiceContainer) {}
+  constructor(private services: ServiceContainer) {
+    this.intervalCleanup();
+  }
 
   //
   //  PUBLIC METHODS
@@ -27,6 +29,18 @@ export class GameService {
 
   public addGame(game: Game): void {
     this.games.set(game.getId(), game);
+  }
+
+  public getGameById(gameId: string): Game | undefined {
+    return this.games.get(gameId);
+  }
+
+  public removePlayerFromGame(game: Game, playerId: string): void {
+    if (!game) return;
+    game.removePlayer(playerId);
+    if (game.getPlayers().length === 0) {
+      this.removeGame(game.getId());
+    }
   }
 
   //
@@ -50,10 +64,6 @@ export class GameService {
     }
   }
 
-  private getGameById(gameId: string): Game | undefined {
-    return this.games.get(gameId);
-  }
-
   //
   //  SOCKET HANDLERS
   //
@@ -62,6 +72,7 @@ export class GameService {
     console.log("Requested game state: ", data.gameId);
     const game = this.getGameById(data.gameId);
     if (game) socket.emit("game-state", { state: game.getState(socket.data.playerId) });
+    this.services.sessionService.updateSessionActivity(socket.data.sessionToken!);
   }
 
   private handlePlayCard(
@@ -89,6 +100,7 @@ export class GameService {
 
       this.processCardPlay(socket, game, data);
       socket.emit("play-card-success", { success: true });
+      this.services.sessionService.updateSessionActivity(socket.data.sessionToken!);
     } catch (error: any) {
       socket.emit("play-card-error", { error: error.message });
     }
@@ -223,5 +235,52 @@ export class GameService {
     if (typeof (game as any).cleanup === "function") {
       (game as any).cleanup();
     }
+  }
+
+  // private intervalCleanup() {
+  //   setInterval(() => {
+  //     const now = Date.now();
+  //     const gamesToRemove: string[] = [];
+
+  //     this.games.forEach((game, gameId) => {
+  //       const inactiveTime = now - game.getLastActivityTimestamp();
+  //       const isGameEmpty = game.getPlayers().length === 0;
+
+  //       if (isGameEmpty && inactiveTime > 10 * 60 * 1000) {
+  //         gamesToRemove.push(gameId);
+  //       } else if (inactiveTime > 30 * 60 * 1000) {
+  //         gamesToRemove.push(gameId);
+  //       }
+  //     });
+
+  //     gamesToRemove.forEach(gameId => {
+  //       console.log(`Cleaning up inactive game: ${gameId}`);
+  //       this.removeGame(gameId);
+  //     });
+  //   }, 5 * 60 * 1000);
+  // }
+
+  private intervalCleanup() {
+    setInterval(() => {
+      const now = Date.now();
+      const gamesToRemove: string[] = [];
+
+      this.games.forEach((game, gameId) => {
+        const inactiveTime = now - game.getLastActivityTimestamp();
+        const isGameEmpty = game.getPlayers().length === 0;
+
+        if (isGameEmpty) {
+          gamesToRemove.push(gameId);
+        }
+      });
+      gamesToRemove.forEach(gameId => {
+        console.log(`Cleaning up inactive game: ${gameId}`);
+        this.removeGame(gameId);
+      });
+    }, 10 * 60 * 1000); // Every 10 minutes
+  }
+
+  public getAllGames(): Game[] {
+    return Array.from(this.games.values());
   }
 }

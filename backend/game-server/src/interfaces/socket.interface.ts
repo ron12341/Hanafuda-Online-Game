@@ -6,6 +6,10 @@ import { PlayerStateDTO } from "./dtos/PlayerState.dto";
 import { Player } from "@core/Player";
 import { RoomSettings } from "./room.interface";
 import { GameOverStateDTO, GameStateDTO, NextRoundStateDTO } from "./game.interface";
+import { Game } from "@core/Game";
+
+import { PlayerSession } from "./session.interface";
+import { Room } from "@core/Room";
 
 //
 //  CLIENT TO SERVER EVENTS
@@ -53,6 +57,9 @@ export interface ClientToServerEvents {
   "start-game": () => void;
   "request-game-state": (data: { gameId: string }) => void;
   "play-card": (data: { gameId: string; playerId: string; cardId: string; targetCardId?: string; action: string; cardType: string }) => void;
+
+  // Stats Events
+  stats: () => void;
 }
 
 //
@@ -145,6 +152,9 @@ export interface ServerToClientEvents {
 
   // Test Events
   calledWith: (data: { message: string }) => void;
+
+  // Stats Events
+  stats: (data: { activeSessions: Array<PlayerSession>; activeRooms: Array<Room>; activeGames: Array<Game>; activePlayers: Array<Player> }) => void;
 }
 
 //

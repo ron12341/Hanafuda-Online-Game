@@ -22,7 +22,7 @@ export class SocketManager {
 
       // Handle reconnection or new connection through SessionService
       if (sessionToken && this.services.sessionService.hasSession(sessionToken)) {
-        console.log("Reconnecting player: ", username, sessionToken);
+        console.log(`Reconnecting player ${username} with session token ${sessionToken}`);
         this.services.sessionService.handleReconnection(socket, sessionToken);
       } else {
         console.log("New player: ", username);
@@ -47,6 +47,15 @@ export class SocketManager {
 
     socket.on("error", error => {
       console.error(`Socket error (${socket.id}): ${error}`);
+    });
+
+    socket.on("stats", () => {
+      socket.emit("stats", {
+        activeSessions: this.services.sessionService.getAllSessions(),
+        activeRooms: this.services.roomService.getAllRooms(),
+        activeGames: this.services.gameService.getAllGames(),
+        activePlayers: this.services.playerService.getAllPlayers(),
+      });
     });
   }
 

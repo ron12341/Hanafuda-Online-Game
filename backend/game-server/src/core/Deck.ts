@@ -105,7 +105,13 @@ export class HanafudaDeck {
   }
 
   public deal(numCards: number): HanafudaCard[] {
-    return this.cards.splice(0, numCards);
+    const cards = this.cards.splice(0, numCards);
+    while (this.cardsHaveThreeOrMoreOfSameMonth(cards)) {
+      this.cards.push(...cards);
+      this.shuffle();
+      cards.splice(0, cards.length, ...this.cards.splice(0, numCards));
+    }
+    return cards;
   }
 
   public draw(): HanafudaCard | undefined {
@@ -132,5 +138,18 @@ export class HanafudaDeck {
     const deck = new HanafudaDeck();
     deck.shuffle();
     return deck;
+  }
+
+  //
+  //  PRIVATE METHODS
+  //
+
+  // Checks if the cards have three or more cards from the same month
+  private cardsHaveThreeOrMoreOfSameMonth(cards: HanafudaCard[]): boolean {
+    const monthCount: { [key: number]: number } = {};
+    cards.forEach(card => {
+      monthCount[card.month] = (monthCount[card.month] || 0) + 1;
+    });
+    return Object.values(monthCount).some(count => count >= 3);
   }
 }
