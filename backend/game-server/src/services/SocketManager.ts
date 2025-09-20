@@ -22,10 +22,8 @@ export class SocketManager {
 
       // Handle reconnection or new connection through SessionService
       if (sessionToken && this.services.sessionService.hasSession(sessionToken)) {
-        console.log(`Reconnecting player ${username} with session token ${sessionToken}`);
         this.services.sessionService.handleReconnection(socket, sessionToken);
       } else {
-        console.log("New player: ", username);
         this.services.sessionService.handleNewConnection(socket, username);
       }
 

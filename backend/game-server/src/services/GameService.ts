@@ -69,7 +69,6 @@ export class GameService {
   //
 
   private handleGameStateRequest(socket: HanafudaSocket, data: { gameId: string }) {
-    console.log("Requested game state: ", data.gameId);
     const game = this.getGameById(data.gameId);
     if (game) socket.emit("game-state", { state: game.getState(socket.data.playerId) });
     this.services.sessionService.updateSessionActivity(socket.data.sessionToken!);
@@ -156,8 +155,6 @@ export class GameService {
       result = game.discardFlippedCard(data.playerId, data.cardId);
     }
 
-    console.log("Result: ", result);
-
     const broadcastData = {
       playerId: data.playerId,
       action: data.action,
@@ -175,14 +172,12 @@ export class GameService {
   private handleRoundEnd(game: Game) {
     if (game.isGameOver()) {
       game.endRound();
-      console.log("Game over");
       const gameOverData: GameOverStateDTO = game.getGameOverState();
       this.services.io.to(game.getRoomId()).emit("game-over", gameOverData);
       this.removeGame(game.getId());
       this.services.roomService.removeRoom(game.getRoomId());
     } else {
       const roundResult: PlayerRoundResult[] = game.endRound();
-      console.log("Start next round");
       game.startNextRound();
       this.notifyPlayersRoundTransition(game, roundResult);
     }

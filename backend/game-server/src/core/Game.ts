@@ -42,6 +42,8 @@ export class Game {
     this.flippedCard = undefined;
     this.currentTurnIndex = 0;
 
+    players.forEach(player => player.setGameId(this.id));
+
     this.settings = {
       maxPlayers: settings?.maxPlayers || 4,
       minPlayers: settings?.minPlayers || 3,

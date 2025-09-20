@@ -112,8 +112,6 @@ export class LobbyService {
 
   private handleJoinRoom(socket: HanafudaSocket, data: { roomId: string }): void {
     try {
-      console.log(`Join room attempt: player ${socket.data.playerId}, room ${data.roomId}`);
-
       const room = this.services.roomService.getRoomById(data.roomId);
       if (!room) {
         socket.emit("join-room-error", { error: "Room not found", roomId: data.roomId });
@@ -144,7 +142,6 @@ export class LobbyService {
         roomId: room.getId(),
       });
 
-      console.log(`Player ${player.getId()} (${player.getName()}) successfully joined room ${room.getId()}`);
       this.services.sessionService.updateSessionActivity(socket.data.sessionToken!);
     } catch (error: any) {
       console.error(`Error joining room: ${error.message}`, error);
