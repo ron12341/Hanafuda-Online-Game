@@ -49,7 +49,6 @@ const roomReducer = (state, action) => {
       };
 
     case "UPDATE_PLAYERS":
-      console.log("Updating players", action.players);
       return {
         ...state,
         players: action.players || [],
@@ -143,7 +142,6 @@ export const RoomProvider = ({ children }) => {
     if (!socket) return;
 
     const handleRoomState = roomData => {
-      console.log("Updating room state", roomData);
       dispatch({
         type: "UPDATE_ROOM",
         id: roomData.id,
@@ -175,7 +173,6 @@ export const RoomProvider = ({ children }) => {
     };
 
     const handlePlayerLeft = data => {
-      console.log("Player left room", data);
       dispatch({
         type: "PLAYER_LEFT_ROOM",
         playerId: data.playerId,
@@ -192,8 +189,7 @@ export const RoomProvider = ({ children }) => {
     };
 
     const handleGameStarted = gameData => {
-      console.log("Game started", gameData);
-      setGameId(gameData.id);
+      setGameId(gameData.gameId);
       dispatch({
         type: "GAME_STARTED",
       });
@@ -215,6 +211,7 @@ export const RoomProvider = ({ children }) => {
       socket.off("player-joined-room", handlePlayerJoined);
       socket.off("player-left-room", handlePlayerLeft);
       socket.off("player-ready-changed", handlePlayerReady);
+      socket.off("game-started", handleGameStarted);
     };
   }, [socket, state]);
 
@@ -224,8 +221,6 @@ export const RoomProvider = ({ children }) => {
         dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
         return;
       }
-
-      console.log("Fetching room data for room: ", roomId, "player: ", playerId);
       emitSafe("request-room-state", { playerId: playerId, roomId });
     },
     [emitSafe, socket, playerId]
@@ -233,7 +228,6 @@ export const RoomProvider = ({ children }) => {
 
   const leaveRoom = useCallback(
     roomId => {
-      console.log("Leaving room: ", state.id, "player: ", playerId);
       if (!socket) {
         dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
         return;
@@ -243,12 +237,11 @@ export const RoomProvider = ({ children }) => {
 
       return new Promise(resolve => {
         const handleSucess = () => {
-          console.log("SUCCESS LEAVING ROOM");
           cleanupListeners();
-          dispatch({ type: "CLEAR_ROOM" });
-          resolve({ success: true });
           setRoomId("");
           setIsReady(false);
+          dispatch({ type: "CLEAR_ROOM" });
+          resolve({ success: true });
         };
 
         const handleError = data => {
@@ -307,10 +300,6 @@ export const RoomProvider = ({ children }) => {
   );
 
   const startGame = useCallback(() => {
-    console.log("Starting game");
-
-    console.log(socket);
-
     if (!socket) {
       dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
       return;

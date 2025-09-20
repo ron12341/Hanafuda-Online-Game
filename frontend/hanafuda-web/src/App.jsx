@@ -1,3 +1,5 @@
+import { Routes, Route, BrowserRouter } from "react-router-dom";
+import { RoomProvider } from "./contexts/RoomContext";
 import { SocketProvider } from "./contexts/SocketContext";
 import { PlayerProvider } from "./contexts/PlayerContext";
 import { LobbyProvider } from "./contexts/LobbyContext";
@@ -6,18 +8,21 @@ import Connect from "./pages/Connect";
 import LobbyPage from "./pages/lobby/LobbyPage";
 import RoomPage from "./pages/RoomPage";
 import GamePage from "./pages/GamePage";
-import { Routes, Route, BrowserRouter } from "react-router-dom";
-import { RoomProvider } from "./contexts/RoomContext";
+import InvalidRouteHandler from "./pages/InvalidRouteHandler";
+import GameLayout from "./GameLayout";
 
 function AppContent() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Connect />} />
-        <Route path="/lobby" element={<LobbyPage />} />
-        <Route path="/room/:roomId" element={<RoomPage />} />
-        <Route path="/game/:gameId" element={<GamePage />} />
-      </Routes>
+      <GameLayout>
+        <Routes>
+          <Route path="/" element={<Connect />} />
+          <Route path="/lobby" element={<LobbyPage />} />
+          <Route path="/room/:roomId" element={<RoomPage />} />
+          <Route path="/game/:gameId" element={<GamePage />} />
+          <Route path="*" element={<InvalidRouteHandler />} />
+        </Routes>
+      </GameLayout>
     </BrowserRouter>
   );
 }

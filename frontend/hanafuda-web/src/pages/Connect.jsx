@@ -6,7 +6,7 @@ import { usePlayer } from "../contexts/PlayerContext";
 const Connect = () => {
   const { player, setUsername, setStatus } = usePlayer();
   const { username: savedUsername, sessionToken } = player;
-  const { connectSocket, isConnected, connectionError } = useSocket();
+  const { connectSocket, isConnected, connectionError, isSocketLoading } = useSocket();
 
   const [inputUsername, setInputUsername] = useState(savedUsername || "");
   const [isConnecting, setIsConnecting] = useState(false);
@@ -16,10 +16,11 @@ const Connect = () => {
 
   // Auto-redirect when connected
   useEffect(() => {
+    if (isSocketLoading) return;
     if (isConnected && player.status === "connected") {
-      navigate("/lobby");
+      navigate("/lobby", { replace: true });
     }
-  }, [isConnected, player.status, navigate]);
+  }, [isConnected, player.status, navigate, isSocketLoading]);
 
   const handleConnect = async () => {
     if (!validateUsername(inputUsername)) return;
@@ -40,7 +41,7 @@ const Connect = () => {
     }
   };
 
-  const validateUsername = (name) => {
+  const validateUsername = name => {
     const trimmed = name.trim();
 
     if (!trimmed) {
@@ -48,8 +49,8 @@ const Connect = () => {
       return false;
     }
 
-    if (trimmed.length < 2) {
-      setLocalError("Username must be at least 2 characters");
+    if (trimmed.length < 3) {
+      setLocalError("Username must be at least 3 characters");
       return false;
     }
 
@@ -66,7 +67,7 @@ const Connect = () => {
     return true;
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = e => {
     if (e.key === "Enter") {
       handleConnect();
     }
@@ -80,7 +81,7 @@ const Connect = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br bg-slate-700 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
@@ -101,7 +102,7 @@ const Connect = () => {
               id="username"
               type="text"
               value={inputUsername}
-              onChange={(e) => {
+              onChange={e => {
                 setInputUsername(e.target.value);
                 setLocalError("");
               }}
@@ -121,12 +122,7 @@ const Connect = () => {
           >
             {isConnecting ? (
               <>
-                <svg
-                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path
                     className="opacity-75"
@@ -208,28 +204,8 @@ const Connect = () => {
               </svg>
               Letters, numbers, _ and -
             </li>
-            <li className="flex items-center">
-              <svg className="w-4 h-4 text-gray-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Progress saved for 7 days
-            </li>
           </ul>
         </div>
-
-        {/* Session Status (debug) */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="mt-4 p-3 bg-gray-100 rounded-lg text-xs text-gray-600">
-            <div>Session: {sessionToken ? "Exists" : "None"}</div>
-            <div>Status: {player.status}</div>
-            <div>Connected: {isConnected ? "Yes" : "No"}</div>
-            <div>Username: {savedUsername || "Not set"}</div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -14,7 +14,6 @@ export default function SettingsModal({ showSettings, setShowSettings, roomSetti
               onChange={e => handleSettingsChange("maxPlayers", parseInt(e.target.value))}
               className="w-full p-2 border border-gray-300 rounded-md"
             >
-              <option value={2}>2 Players</option>
               <option value={3}>3 Players</option>
               <option value={4}>4 Players</option>
             </select>

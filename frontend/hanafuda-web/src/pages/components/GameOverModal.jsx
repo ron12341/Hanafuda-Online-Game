@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const GameOverModal = ({ isGameOver, winner, scores, onRestart, onExit }) => {
+const GameOverModal = ({ isGameOver, winner, scores, onExit }) => {
   const [showAnimation, setShowAnimation] = useState(false);
 
   useEffect(() => {

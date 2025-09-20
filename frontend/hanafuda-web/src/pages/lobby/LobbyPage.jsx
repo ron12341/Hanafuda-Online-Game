@@ -10,12 +10,11 @@ import OnlinePlayersList from "./components/OnlinePlayersList";
 import CreateRoomSection from "./components/CreateRoomSection";
 
 export default function LobbyPage() {
-  const { username, playerId } = usePlayer();
-  const { isConnected } = useSocket();
+  const { playerId, player } = usePlayer();
+  const { isConnected, isSocketLoading } = useSocket();
   const {
     rooms,
     waitingPlayers,
-    isLoading,
     isCreatingRoom,
     isJoiningRoom,
     error,
@@ -25,6 +24,7 @@ export default function LobbyPage() {
     createRoom,
     joinRoom,
     clearErrors,
+    getStats,
   } = useLobby();
 
   const navigate = useNavigate();
@@ -37,12 +37,35 @@ export default function LobbyPage() {
     visibility: "public",
     password: "",
   });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (isConnected) {
+    if (isSocketLoading) return;
+
+    setIsLoading(true);
+    try {
+      if (!isConnected && player.status === "disconnected") {
+        navigate("/", { replace: true });
+        return;
+      }
+
+      if (player.gameId) {
+        navigate(`/game/${player.gameId}`, { replace: true });
+        return;
+      }
+
+      if (player.roomId) {
+        navigate(`/room/${player.roomId}`, { replace: true });
+        return;
+      }
+
       fetchLobbyData();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsLoading(false);
     }
-  }, [isConnected]);
+  }, [isConnected, isSocketLoading]);
 
   const handleCreateRoom = async () => {
     if (!newRoomName.trim()) {
@@ -80,18 +103,11 @@ export default function LobbyPage() {
 
     const result = await joinRoom(roomId);
 
-    console.log(result);
     if (result.success) {
       navigate(`/room/${roomId}`);
     } else {
       setLocalError(result.error);
     }
-  };
-
-  const handleRefresh = () => {
-    setLocalError("");
-    clearErrors();
-    fetchLobbyData();
   };
 
   const handleSettingsChange = (field, value) => {
@@ -101,19 +117,18 @@ export default function LobbyPage() {
     }));
   };
 
-  if (!isConnected) {
+  if (isSocketLoading) return null;
+
+  if (isLoading) {
     return (
-      <div className="p-4 text-center">
-        <div className="text-lg">Connecting to server...</div>
-        <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-blue-500 text-white rounded">
-          Retry Connection
-        </button>
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
       </div>
     );
   }
 
   return (
-    <div className="lobby-container max-w-4xl mx-auto p-6 min-h-screen min-w-full bg-gray-800">
+    <div className="lobby-container max-w-4xl mx-auto p-6 min-w-full bg-gray-800">
       <SettingsModal
         showSettings={showSettings}
         setShowSettings={setShowSettings}
@@ -121,16 +136,6 @@ export default function LobbyPage() {
         handleSettingsChange={handleSettingsChange}
         handleCreateRoom={handleCreateRoom}
       />
-
-      <header className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Hanafuda Game Lobby</h1>
-        <p className="text-gray-600">Welcome, {username}!</p>
-        <div
-          className={`inline-block px-3 py-1 rounded-full text-sm mt-2 ${isConnected ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
-        >
-          ● {isConnected ? "Connected" : "Disconnected"}
-        </div>
-      </header>
 
       <CreateRoomSection
         newRoomName={newRoomName}
@@ -143,14 +148,7 @@ export default function LobbyPage() {
         setLocalError={setLocalError}
       />
 
-      <RoomList
-        rooms={rooms}
-        isLoading={isLoading}
-        isJoiningRoom={isJoiningRoom}
-        joinRoomError={joinRoomError}
-        handleJoinRoom={handleJoinRoom}
-        handleRefresh={handleRefresh}
-      />
+      <RoomList rooms={rooms} isLoading={isLoading} isJoiningRoom={isJoiningRoom} joinRoomError={joinRoomError} handleJoinRoom={handleJoinRoom} />
 
       <OnlinePlayersList waitingPlayers={waitingPlayers} playerId={playerId} />
     </div>

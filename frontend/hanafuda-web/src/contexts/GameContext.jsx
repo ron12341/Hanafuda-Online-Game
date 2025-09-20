@@ -54,7 +54,6 @@ const gameReducer = (state, action) => {
       };
 
     case "PLAYER_CAPTURED_CARD":
-      console.log("CAPTURING CARD", action);
       const updatedTable = state.table.filter(card => card.id !== action.targetCard.id);
       const updatedPlayers = state.players.map(player => {
         if (player.id === action.playerId) {
@@ -78,7 +77,6 @@ const gameReducer = (state, action) => {
       };
 
     case "PLAYER_DISCARDED_CARD":
-      console.log("DISCARDING CARD", action);
       return {
         ...state,
         table: [...state.table, action.handCard],
@@ -90,7 +88,6 @@ const gameReducer = (state, action) => {
       };
 
     case "PLAYER_CAPTURED_FLIPPED_CARD":
-      console.log("CAPTURING FLIPPED CARD", action);
       const targetCard = state.table.find(card => card.id === action.targetCardId);
       return {
         ...state,
@@ -112,7 +109,6 @@ const gameReducer = (state, action) => {
       };
 
     case "PLAYER_DISCARDED_FLIPPED_CARD":
-      console.log("DISCARDING FLIPPED CARD", action);
       return {
         ...state,
         table: [...state.table, action.flippedCard],
@@ -147,7 +143,6 @@ const gameReducer = (state, action) => {
         return player;
       });
 
-      console.log("ROUND OVER - Updated scores:", roundResults);
       return {
         ...state,
         roundResult: action.roundResult,
@@ -167,7 +162,6 @@ const gameReducer = (state, action) => {
       };
 
     case "NEW_ROUND_STARTED":
-      console.log("NEW ROUND STARTED", action);
       return {
         ...state,
         table: action.table,
@@ -183,7 +177,6 @@ const gameReducer = (state, action) => {
       };
 
     case "GAME_OVER":
-      console.log("GAME OVER", action);
       return {
         ...state,
         isGameOver: true,
@@ -263,9 +256,6 @@ export const GameProvider = ({ children }) => {
     if (!socket) return;
 
     const handlePlayerPlayedCard = data => {
-      console.log("Player played card", data);
-      console.log("Current state", state);
-
       if (data.action === "capture") {
         dispatch({
           type: "PLAYER_CAPTURED_CARD",
@@ -286,8 +276,6 @@ export const GameProvider = ({ children }) => {
     };
 
     const handlePlayerPlayedFlippedCard = data => {
-      console.log("Player played flipped card", data);
-
       if (data.action === "capture") {
         dispatch({
           type: "PLAYER_CAPTURED_FLIPPED_CARD",
@@ -307,8 +295,6 @@ export const GameProvider = ({ children }) => {
 
     // In your game context
     const handleRoundTransition = data => {
-      console.log("Round transition", data);
-
       dispatch({
         type: "ROUND_OVER",
         roundResult: data.roundResult,
@@ -333,7 +319,6 @@ export const GameProvider = ({ children }) => {
     };
 
     const handleGameOver = data => {
-      console.log("Game over", data);
       dispatch({ type: "GAME_OVER", winner: data.winner, finalScores: data.finalScores });
     };
 
@@ -358,7 +343,6 @@ export const GameProvider = ({ children }) => {
 
       return new Promise(resolve => {
         const handleSuccess = gameData => {
-          console.log("Fetched game data", gameData);
           cleanupListeners();
           dispatch({
             type: "UPDATE_GAME_STATE",
@@ -376,7 +360,6 @@ export const GameProvider = ({ children }) => {
         };
 
         const handleError = data => {
-          console.log("Error fetching game data", data);
           cleanupListeners();
           resolve({ success: false, error: data.error });
         };
@@ -397,8 +380,6 @@ export const GameProvider = ({ children }) => {
 
   const playCard = useCallback(
     ({ gameId, playerId, cardId, targetCardId, action, cardType }) => {
-      console.log("PLAYING CARD", { gameId, playerId, cardId, targetCardId, action, cardType });
-
       if (!socket) {
         dispatch({ type: "GAME_OPERATION_ERROR", error: "No socket connection" });
         return;
@@ -418,7 +399,6 @@ export const GameProvider = ({ children }) => {
         };
 
         const handleError = data => {
-          console.log("Error playing card", data);
           cleanupListeners();
           dispatch({ type: "GAME_OPERATION_ERROR", error: data.error });
           resolve({ success: false, error: data.error });

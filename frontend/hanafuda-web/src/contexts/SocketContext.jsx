@@ -6,8 +6,7 @@ const SocketContext = createContext();
 const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL;
 
 export function SocketProvider({ children }) {
-  const { player, setPlayerId, setSessionToken, setStatus, setIsReady, updateLastActive, setRoomId, setGameId } = usePlayer();
-
+  const { player, setPlayerId, setSessionToken, setStatus, setIsReady, updateLastActive, setRoomId, setGameId, clearPlayer } = usePlayer();
   const { username, sessionToken } = player;
 
   const isConnecting = useRef(false);
@@ -15,6 +14,7 @@ export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
+  const [isSocketLoading, setIsSocketLoading] = useState(true);
   const autoConnectAttempted = useRef(false);
 
   const connectSocket = useCallback(
@@ -25,10 +25,9 @@ export function SocketProvider({ children }) {
 
       isConnecting.current = true;
       setStatus("connecting");
+      setIsSocketLoading(true);
 
       return new Promise((resolve, reject) => {
-        console.log("Connecting to socket...", connectionUsername);
-
         // Cleanup previous connections
         if (socketRef.current?.connected) {
           socketRef.current.removeAllListeners();
@@ -40,7 +39,7 @@ export function SocketProvider({ children }) {
           timeout: 15000,
           autoConnect: false,
           reconnection: true,
-          reconnectionAttempts: Infinity,
+          reconnectionAttempts: 5,
           reconnectionDelay: 1000,
           reconnectionDelayMax: 10000,
           randomizationFactor: 0.5,
@@ -52,7 +51,6 @@ export function SocketProvider({ children }) {
 
         // Connection success handler
         const handleConnect = () => {
-          console.log("Socket connected: ", newSocket.id);
           isConnecting.current = false;
           setIsConnected(true);
           setConnectionError(null);
@@ -60,16 +58,17 @@ export function SocketProvider({ children }) {
           updateLastActive();
           socketRef.current = newSocket;
           setSocket(newSocket);
+          setIsSocketLoading(false);
           resolve(newSocket);
         };
 
         // Transport-level connection error
         const handleConnectError = error => {
-          console.log("Transport connection failed: ", error.message);
           isConnecting.current = false;
           setConnectionError(error.message);
           setIsConnected(false);
           setStatus("disconnected");
+          setIsSocketLoading(false);
 
           // Safe disconnect - only if connected
           if (newSocket.connected) {
@@ -82,11 +81,11 @@ export function SocketProvider({ children }) {
 
         // Application-level connection error
         const handleConnectionError = error => {
-          console.log("Application connection error: ", error.error, error.details);
           isConnecting.current = false;
           setConnectionError(`${error.error}: ${error.details}`);
           setIsConnected(false);
           setStatus("error");
+          setIsSocketLoading(false);
 
           // Safe disconnect - only if connected
           if (newSocket.connected) {
@@ -97,27 +96,28 @@ export function SocketProvider({ children }) {
 
         // General disconnect handler
         const handleDisconnect = reason => {
-          console.log("Socket disconnected: ", reason);
           setIsConnected(false);
           setStatus("disconnected");
         };
 
         // Session handlers
         const handleSessionCreated = data => {
-          console.log("Session created: ", data);
           setSessionToken(data.sessionToken);
           setPlayerId(data.playerId);
           setIsReady(data.isReady);
+          setIsConnected(true);
+          setIsSocketLoading(false);
           updateLastActive();
         };
 
         const handleSessionRestored = data => {
-          console.log("Session restored: ", data);
           setSessionToken(data.sessionToken);
           setPlayerId(data.playerId);
           setIsReady(data.isReady);
           setRoomId(data.roomId);
           setGameId(data.gameId);
+          setIsConnected(true);
+          setIsSocketLoading(false);
           updateLastActive();
         };
 
@@ -176,6 +176,8 @@ export function SocketProvider({ children }) {
       setSocket(null);
       setIsConnected(false);
       setStatus("disconnected");
+      setIsSocketLoading(false);
+      clearPlayer();
     }
   }, [setStatus]);
 
@@ -183,13 +185,23 @@ export function SocketProvider({ children }) {
   useEffect(() => {
     if (username && sessionToken && !isConnected && !autoConnectAttempted.current) {
       autoConnectAttempted.current = true;
-      console.log("Auto-reconnecting with existing session...");
       connectSocket().catch(error => {
-        console.log("Auto-reconnect failed:", error.message);
         autoConnectAttempted.current = false;
       });
     }
+    setIsSocketLoading(false);
   }, [username, sessionToken, isConnected, connectSocket]);
+
+  // // Set loading to false if no auto-connect is attempted after mount
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     if (isSocketLoading && !autoConnectAttempted.current) {
+  //       setIsSocketLoading(false);
+  //     }
+  //   }, 1000); // Wait 1 second to see if auto-connect will be attempted
+
+  //   return () => clearTimeout(timer);
+  // }, [isSocketLoading]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -208,6 +220,7 @@ export function SocketProvider({ children }) {
     connectionError,
     resetError: () => setConnectionError(null),
     emitSafe,
+    isSocketLoading,
   };
 
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;

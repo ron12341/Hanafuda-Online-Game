@@ -16,8 +16,6 @@ export default function GamePage() {
   const { player } = usePlayer();
   const { gameState, fetchGameData, playCard, clearGame } = useGame();
   const { clearRoom } = useRoom();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [myTurn, setMyTurn] = useState(false);
 
   const [selectedHandCard, setSelectedHandCard] = useState(null);
@@ -115,7 +113,6 @@ export default function GamePage() {
 
   const handleExitGame = () => {
     // Navigate to a different route entirely to avoid the fetch
-    console.log("Navigate to /lobby");
     navigate("/lobby", { replace: true });
 
     // Then cleanup the game state
@@ -138,23 +135,24 @@ export default function GamePage() {
   }, [selectedHandCard]);
 
   useEffect(() => {
-    console.log("Game page mounted");
+    if (!isConnected || !gameId) return;
+
+    if (player.status === "in-room") {
+      navigate("/room/" + gameId, { replace: true });
+      return;
+    }
 
     const loadGame = async () => {
       try {
-        setLoading(true);
         const result = await fetchGameData(gameId);
 
         if (result.success) {
           const data = result.data;
           setMyTurn(data.players?.[data.currentTurnIndex]?.id === player.playerId);
-          console.log(data.players?.[data.currentTurnIndex]?.id, player.playerId);
         }
       } catch (err) {
         setError("Failed to load game");
         console.error("Game load error:", err);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -173,37 +171,26 @@ export default function GamePage() {
     return gameState.players?.[gameState.currentTurnIndex]?.id === player.playerId;
   };
 
-  if (gameState.isLoading) {
+  if (!isConnected) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading game...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center">
-          <p className="text-red-500 text-lg mb-4">{error}</p>
-          <button onClick={() => navigate("/lobby")} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-            Back to Lobby
+      <div className="flex items-center justify-center min-h-screen bg-gray-700">
+        <div className="p-6 bg-white rounded-lg shadow-md text-center">
+          <p className="text-lg text-gray-700 mb-4">You are not connected to the server</p>
+          <button onClick={() => navigate("/")} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+            Go to Connection Page
           </button>
         </div>
       </div>
     );
   }
 
-  if (!gameState) {
+  if (player.gameId !== gameId) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center">
-          <p className="text-red-500 text-lg mb-4">Game not found</p>
-          <button onClick={() => navigate("/lobby")} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-            Back to Lobby
+      <div className="flex items-center justify-center min-h-screen bg-gray-700">
+        <div className="p-6 bg-white rounded-lg shadow-md text-center">
+          <p className="text-lg text-gray-700 mb-4">{"You are not in this game"}</p>
+          <button onClick={() => navigate("/lobby")} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+            Go Back
           </button>
         </div>
       </div>
@@ -211,7 +198,7 @@ export default function GamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 to-purple-900 text-white p-4 flex flex-col">
+    <div className="min-h-screen bg-gray-800 text-white p-4 flex flex-col">
       {/* Top Section */}
       <div className="bg-black bg-opacity-70 rounded-xl p-4 mb-4 shadow-lg">
         <div className="flex flex-col md:flex-row justify-between items-center">
@@ -226,31 +213,29 @@ export default function GamePage() {
           <div className="flex items-center space-x-4">
             <div className="flex flex-wrap gap-2">
               <button
-                className="bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg transition-colors text-sm"
-                // onClick={toggleCapturedCards}
-              >
-                View Captured
-              </button>
-              <button
-                className="bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg transition-colors text-sm"
+                disabled={true}
+                className="bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 // onClick={toggleScores}
               >
                 View Scores
               </button>
               <button
-                className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg transition-colors text-sm"
+                disabled={true}
+                className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 // onClick={toggleCombos}
               >
                 View Combos
               </button>
               <button
-                className="bg-yellow-600 hover:bg-yellow-700 px-3 py-2 rounded-lg transition-colors text-sm"
+                disabled={true}
+                className="bg-yellow-600 hover:bg-yellow-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 // onClick={toggleHelp}
               >
                 Help/Rules
               </button>
               <button
-                className="bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors text-sm"
+                disabled={true}
+                className="bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 // onClick={toggleMenu}
               >
                 Menu
@@ -393,7 +378,6 @@ export default function GamePage() {
         isGameOver={gameState.isGameOver}
         winner={gameState.winner}
         scores={gameState.finalScores}
-        onRestart={() => console.log("Restart game")}
         onExit={handleExitGame}
       />
 

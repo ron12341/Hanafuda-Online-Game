@@ -1,10 +1,10 @@
 export default function OnlinePlayersList({ waitingPlayers, playerId }) {
   return (
     <section className="rounded-lg shadow-md p-6 bg-gray-700">
-      <h2 className="text-xl font-semibold mb-4">Online Players ({waitingPlayers.length})</h2>
+      <h2 className="text-white text-xl font-semibold mb-4">Online Players ({waitingPlayers.length})</h2>
 
       {waitingPlayers.length === 0 ? (
-        <p className="text-gray-500 text-center py-4">No players online</p>
+        <p className="text-gray-200 text-center py-4">No players online</p>
       ) : (
         <div className="grid gap-2">
           {waitingPlayers.map(player => (

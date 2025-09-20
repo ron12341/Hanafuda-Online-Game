@@ -5,10 +5,27 @@ const PlayerContext = createContext();
 export function PlayerProvider({ children }) {
   // Single state object for better organization
   const [player, setPlayer] = useState(() => {
-    const saved = localStorage.getItem("hanafuda-player");
-    return saved
-      ? JSON.parse(saved)
-      : {
+    const saved = sessionStorage.getItem("hanafuda-player");
+    if (!saved) {
+      return {
+        username: "",
+        playerId: "",
+        sessionToken: "",
+        roomId: "",
+        gameId: "",
+        status: "disconnected",
+        lastActive: null,
+        isReady: false,
+      };
+    }
+
+    try {
+      const playerData = JSON.parse(saved);
+
+      // Check if data has expired
+      if (playerData._expiry && playerData._expiry < Date.now()) {
+        sessionStorage.removeItem("hanafuda-player");
+        return {
           username: "",
           playerId: "",
           sessionToken: "",
@@ -18,31 +35,48 @@ export function PlayerProvider({ children }) {
           lastActive: null,
           isReady: false,
         };
+      }
+
+      return playerData;
+    } catch (error) {
+      console.error("Error parsing player data:", error);
+      sessionStorage.removeItem("hanafuda-player");
+      return {
+        username: "",
+        playerId: "",
+        sessionToken: "",
+        roomId: "",
+        gameId: "",
+        status: "disconnected",
+        lastActive: null,
+        isReady: false,
+      };
+    }
   });
 
-  // Auto-save to localStorage with expiration
+  // Auto-save to sessionStorage with expiration
   useEffect(() => {
     if (player.username || player.playerId || player.sessionToken) {
       const playerDataWithExpiry = {
         ...player,
-        // _expiry: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days from now
-        _expiry: Date.now() + 5 * 60 * 1000, // 5 minutes from now
+        _expiry: Date.now() + 24 * 60 * 60 * 1000, // 24 hours from now
       };
-      localStorage.setItem("hanafuda-player", JSON.stringify(playerDataWithExpiry));
+      sessionStorage.setItem("hanafuda-player", JSON.stringify(playerDataWithExpiry));
     } else {
-      localStorage.removeItem("hanafuda-player");
+      sessionStorage.removeItem("hanafuda-player");
     }
   }, [player]);
 
   // Check expiry on mount and periodically
   useEffect(() => {
     const checkExpiry = () => {
-      const saved = localStorage.getItem("hanafuda-player");
-      if (saved) {
+      const saved = sessionStorage.getItem("hanafuda-player");
+      if (!saved) return;
+
+      try {
         const playerData = JSON.parse(saved);
         if (playerData._expiry && playerData._expiry < Date.now()) {
-          console.log("Player data expired, clearing...");
-          localStorage.removeItem("hanafuda-player");
+          sessionStorage.removeItem("hanafuda-player");
           setPlayer({
             username: "",
             playerId: "",
@@ -54,13 +88,16 @@ export function PlayerProvider({ children }) {
             isReady: false,
           });
         }
+      } catch (error) {
+        console.error("Error checking expiry:", error);
+        sessionStorage.removeItem("hanafuda-player");
       }
     };
 
     // Check on mount
     checkExpiry();
 
-    // Check every hour
+    // Check every hour (much less frequent than with localStorage)
     const interval = setInterval(checkExpiry, 60 * 60 * 1000);
 
     return () => clearInterval(interval);

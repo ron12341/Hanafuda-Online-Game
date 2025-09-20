@@ -83,7 +83,6 @@ export const LobbyProvider = ({ children }) => {
   const { setRoomId } = usePlayer();
 
   const handleLobbyState = lobbyData => {
-    console.log("Updating lobby state", lobbyData);
     dispatch({
       type: "UPDATE_LOBBY",
       rooms: lobbyData.rooms,
@@ -112,11 +111,15 @@ export const LobbyProvider = ({ children }) => {
     socket.on("lobby-update-rooms", handleUpdateRooms);
     socket.on("lobby-update-waiting-players", handleUpdateWaitingPlayers);
 
+    socket.on("stats", stats => {
+      console.log("Server Stats:", stats);
+    });
     return () => {
       socket.off("lobby-state", handleLobbyState);
       socket.off("room-operation-error", handleRoomOperationError);
       socket.off("lobby-update-rooms", handleUpdateRooms);
       socket.off("lobby-update-waiting-players", handleUpdateWaitingPlayers);
+      socket.off("stats");
     };
   }, [socket]);
 
@@ -155,7 +158,6 @@ export const LobbyProvider = ({ children }) => {
 
   const joinRoom = useCallback(
     async roomId => {
-      console.log("Joining room", roomId);
       if (!socket) {
         return { success: false, error: "Not connected to server" };
       }
@@ -206,6 +208,14 @@ export const LobbyProvider = ({ children }) => {
     dispatch({ type: "CLEAR_ERRORS" });
   }, []);
 
+  const getStats = useCallback(() => {
+    if (!socket) {
+      console.warn("Socket not connected");
+      return;
+    }
+    emitSafe("stats");
+  });
+
   const value = {
     ...state,
     fetchLobbyData,
@@ -213,6 +223,7 @@ export const LobbyProvider = ({ children }) => {
     joinRoom,
     leaveLobby,
     clearErrors,
+    getStats,
   };
 
   return <LobbyStateContext.Provider value={value}>{children}</LobbyStateContext.Provider>;
