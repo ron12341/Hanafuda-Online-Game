@@ -23,6 +23,7 @@ export default function GamePage() {
 
   const [showCapturedModal, setShowCapturedModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const navigate = useNavigate();
 
@@ -142,22 +143,30 @@ export default function GamePage() {
       return;
     }
 
-    const loadGame = async () => {
-      try {
-        const result = await fetchGameData(gameId);
+    try {
+      setIsLoading(true);
+      const loadGame = async () => {
+        try {
+          const result = await fetchGameData(gameId);
 
-        if (result.success) {
-          const data = result.data;
-          setMyTurn(data.players?.[data.currentTurnIndex]?.id === player.playerId);
+          if (result.success) {
+            const data = result.data;
+            setMyTurn(data.players?.[data.currentTurnIndex]?.id === player.playerId);
+          }
+        } catch (err) {
+          setError("Failed to load game");
+          console.error("Game load error:", err);
         }
-      } catch (err) {
-        setError("Failed to load game");
-        console.error("Game load error:", err);
-      }
-    };
+      };
 
-    if (isConnected && gameId) {
-      loadGame();
+      if (isConnected && gameId) {
+        loadGame();
+      }
+    } catch (err) {
+      setError("Failed to load game");
+      console.error("Game load error:", err);
+    } finally {
+      setIsLoading(false);
     }
   }, [isConnected, gameId]);
 
@@ -170,6 +179,14 @@ export default function GamePage() {
   const isMyTurn = () => {
     return gameState.players?.[gameState.currentTurnIndex]?.id === player.playerId;
   };
+
+  if (isLoading || isSocketLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+      </div>
+    );
+  }
 
   if (!isConnected) {
     return (
