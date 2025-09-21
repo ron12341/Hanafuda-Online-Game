@@ -6,10 +6,10 @@ export default function Navbar() {
   const { isConnected, disconnectSocket } = useSocket();
 
   const getConnectionStatus = (isConnected, player) => {
-    if (!isConnected) return { text: "Disconnected", color: "red" };
-    if (player.gameId) return { text: "In Game", color: "green" };
-    if (player.roomId) return { text: "In Room", color: "blue" };
-    return { text: "Connected", color: "green" };
+    if (!isConnected) return { text: "Disconnected", bg: "bg-red-500" };
+    if (player.gameId) return { text: "In Game", bg: "bg-yello-500" };
+    if (player.roomId) return { text: "In Room", bg: "bg-blue-500" };
+    return { text: "Connected", bg: "bg-green-500" };
   };
 
   const status = getConnectionStatus(isConnected, player);
@@ -26,7 +26,7 @@ export default function Navbar() {
         <div className="flex items-center space-x-4">
           {/* Connection status */}
           <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full bg-${status.color}-400 animate-pulse`} title={status.text} />
+            <div className={`w-3 h-3 rounded-full ${status.bg} animate-pulse`} title={status.text} />
             <p className="text-white text-sm font-medium">{status.text}</p>
           </div>
 

@@ -189,7 +189,6 @@ export function SocketProvider({ children }) {
         autoConnectAttempted.current = false;
       });
     }
-    setIsSocketLoading(false);
   }, [username, sessionToken, isConnected, connectSocket]);
 
   // // Set loading to false if no auto-connect is attempted after mount
