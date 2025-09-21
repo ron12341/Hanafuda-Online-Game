@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react-swc"; // ← Import from SWC
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
@@ -16,12 +16,12 @@ export default defineConfig({
         theme_color: "#ffffff",
         icons: [
           {
-            src: "/icon-192.png",
+            src: "/cards/8-hikari.png",
             sizes: "192x192",
             type: "image/png",
           },
           {
-            src: "/icon-512.png",
+            src: "/cards/8-hikari.png",
             sizes: "512x512",
             type: "image/png",
           },
@@ -29,7 +29,7 @@ export default defineConfig({
       },
     }),
   ],
-  base: "/hanafuda/",
+  base: "/",
   build: {
     outDir: "dist",
   },
