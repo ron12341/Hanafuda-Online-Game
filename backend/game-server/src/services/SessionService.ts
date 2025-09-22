@@ -66,6 +66,8 @@ export class SessionService {
         username: player.getName(),
         isReady: player.getIsReady(),
       });
+
+      console.log(`New player connected: ${player.getName()} (${player.getId()})`);
     } catch (error: any) {
       console.error("Error handling new connection: ", error);
       socket.emit("connection-error", {
@@ -122,6 +124,8 @@ export class SessionService {
         gameId: player.getGameId(),
         isReady: player.getIsReady(),
       });
+
+      console.log(`Player reconnected: ${player.getName()} (${player.getId()})`);
     } catch (error: any) {
       console.error("Reconnection failed: ", error.message);
       socket.emit("connection-error", {
