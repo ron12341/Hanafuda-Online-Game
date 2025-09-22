@@ -34,12 +34,10 @@ export class LobbyService {
   // Room management
   addRoomToLobby(room: Room): void {
     this.rooms.push(room);
-    this.broadcastLobbyState();
   }
 
   removeRoomFromLobby(roomId: string): void {
     this.rooms = this.rooms.filter(room => room.getId() !== roomId);
-    this.broadcastLobbyState();
   }
 
   // Getters
