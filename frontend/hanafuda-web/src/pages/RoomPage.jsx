@@ -21,10 +21,15 @@ export default function RoomPage() {
   } = useRoom();
 
   const [localError, setLocalError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (player.status === "disconnected") navigate("/");
+  }, [player.status]);
 
   // Join room and fetch data when component mounts or roomId changes
   useEffect(() => {
+    if (isSocketLoading) return;
     setIsLoading(true);
     try {
       if (!isConnected || !roomId || !player.roomId) return;
@@ -92,7 +97,7 @@ export default function RoomPage() {
     );
   }
 
-  if (!isConnected) {
+  if (!isConnected && player.status === "disconnected") {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-700">
         <div className="p-6 bg-white rounded-lg shadow-md text-center">

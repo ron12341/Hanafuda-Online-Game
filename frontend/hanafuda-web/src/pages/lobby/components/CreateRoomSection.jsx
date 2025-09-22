@@ -9,7 +9,7 @@ export default function CreateRoomSection({
   setLocalError,
 }) {
   return (
-    <section className="rounded-lg shadow-md p-6 mb-6 bg-gray-700">
+    <div className="rounded-lg shadow-md p-6 mb-6 bg-gray-700">
       <h2 className="text-xl font-semibold mb-4 text-white">Create New Room</h2>
       <div className="flex gap-2 mb-3">
         <input
@@ -34,6 +34,6 @@ export default function CreateRoomSection({
       </div>
 
       {(localError || createRoomError) && <div className="mt-2 p-2 bg-red-100 text-red-700 rounded-md">{localError || createRoomError}</div>}
-    </section>
+    </div>
   );
 }

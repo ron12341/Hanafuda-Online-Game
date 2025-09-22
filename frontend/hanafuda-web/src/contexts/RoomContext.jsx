@@ -221,7 +221,7 @@ export const RoomProvider = ({ children }) => {
         dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
         return;
       }
-      emitSafe("request-room-state", { playerId: playerId, roomId });
+      console.log("Fetching room data"), emitSafe("request-room-state", { playerId: playerId, roomId });
     },
     [emitSafe, socket, playerId]
   );

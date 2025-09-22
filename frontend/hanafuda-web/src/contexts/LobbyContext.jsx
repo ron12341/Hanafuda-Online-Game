@@ -129,6 +129,7 @@ export const LobbyProvider = ({ children }) => {
       dispatch({ type: "ROOM_OPERATION_ERROR", error: "Not connected to server" });
       return;
     }
+    console.log("Fethching lobby data");
     emitSafe("request-lobby-state");
   }, [emitSafe, socket]);
 

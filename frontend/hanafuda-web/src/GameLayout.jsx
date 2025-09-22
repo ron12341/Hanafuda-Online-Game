@@ -4,7 +4,7 @@ import Navbar from "./pages/components/Navbar";
 export default function GameLayout({ children }) {
   const location = useLocation();
   const locationPathname = location.pathname;
-  const showNavbar = !locationPathname.includes("/game/") && locationPathname !== "/";
+  const showNavbar = locationPathname !== "/";
 
   return (
     <div className="min-h-screen bg-gray-800">

@@ -372,6 +372,7 @@ export const GameProvider = ({ children }) => {
         socket.on("game-state", handleSuccess);
         socket.on("game-state-error", handleError);
 
+        console.log("Fetching game state...");
         emitSafe("request-game-state", { gameId: gameId });
       });
     },

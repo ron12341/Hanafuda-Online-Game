@@ -40,15 +40,15 @@ export default function LobbyPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (isSocketLoading) return;
+    console.log("PLAYER: ", player);
+    console.log("IS SOCKET LOADING: ", isSocketLoading);
+    if (player.status === "disconnected") {
+      navigate("/", { replace: true });
+    }
 
+    if (isSocketLoading) return;
     setIsLoading(true);
     try {
-      if (!isConnected && player.status === "disconnected") {
-        navigate("/", { replace: true });
-        return;
-      }
-
       if (player.gameId) {
         navigate(`/game/${player.gameId}`, { replace: true });
         return;
@@ -65,7 +65,7 @@ export default function LobbyPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [isConnected, isSocketLoading]);
+  }, [isConnected, isSocketLoading, player.status]);
 
   const handleCreateRoom = async () => {
     if (!newRoomName.trim()) {
@@ -117,7 +117,7 @@ export default function LobbyPage() {
     }));
   };
 
-  if (isLoading || isSocketLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
@@ -126,29 +126,31 @@ export default function LobbyPage() {
   }
 
   return (
-    <div className="lobby-container max-w-4xl mx-auto p-6 min-w-full bg-gray-800">
-      <SettingsModal
-        showSettings={showSettings}
-        setShowSettings={setShowSettings}
-        roomSettings={roomSettings}
-        handleSettingsChange={handleSettingsChange}
-        handleCreateRoom={handleCreateRoom}
-      />
+    <div className="p-4 md:p-6 bg-gray-800">
+      <div className="max-w-4xl mx-auto">
+        <SettingsModal
+          showSettings={showSettings}
+          setShowSettings={setShowSettings}
+          roomSettings={roomSettings}
+          handleSettingsChange={handleSettingsChange}
+          handleCreateRoom={handleCreateRoom}
+        />
 
-      <CreateRoomSection
-        newRoomName={newRoomName}
-        setNewRoomName={setNewRoomName}
-        roomSettings={roomSettings}
-        isCreatingRoom={isCreatingRoom}
-        localError={localError}
-        createRoomError={createRoomError}
-        setShowSettings={setShowSettings}
-        setLocalError={setLocalError}
-      />
+        <CreateRoomSection
+          newRoomName={newRoomName}
+          setNewRoomName={setNewRoomName}
+          roomSettings={roomSettings}
+          isCreatingRoom={isCreatingRoom}
+          localError={localError}
+          createRoomError={createRoomError}
+          setShowSettings={setShowSettings}
+          setLocalError={setLocalError}
+        />
 
-      <RoomList rooms={rooms} isLoading={isLoading} isJoiningRoom={isJoiningRoom} joinRoomError={joinRoomError} handleJoinRoom={handleJoinRoom} />
+        <RoomList rooms={rooms} isLoading={isLoading} isJoiningRoom={isJoiningRoom} joinRoomError={joinRoomError} handleJoinRoom={handleJoinRoom} />
 
-      <OnlinePlayersList waitingPlayers={waitingPlayers} playerId={playerId} />
+        <OnlinePlayersList waitingPlayers={waitingPlayers} playerId={playerId} />
+      </div>
     </div>
   );
 }

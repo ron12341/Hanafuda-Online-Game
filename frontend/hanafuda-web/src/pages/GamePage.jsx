@@ -12,7 +12,7 @@ import CapturedCardsModal from "./components/CapturedCardsModal";
 
 export default function GamePage() {
   const { gameId } = useParams();
-  const { isConnected } = useSocket();
+  const { isConnected, isSocketLoading } = useSocket();
   const { player } = usePlayer();
   const { gameState, fetchGameData, playCard, clearGame } = useGame();
   const { clearRoom } = useRoom();
@@ -23,13 +23,17 @@ export default function GamePage() {
 
   const [showCapturedModal, setShowCapturedModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
 
   // Check if flipped card should be automatically selected
   const shouldAutoSelectFlippedCard = gameState.flippedCard && myTurn;
   const handCardsDisabled = shouldAutoSelectFlippedCard;
+
+  useEffect(() => {
+    if (player.status === "disconnected") navigate("/");
+  }, [player.status]);
 
   useEffect(() => {
     if (shouldAutoSelectFlippedCard) {
@@ -136,12 +140,7 @@ export default function GamePage() {
   }, [selectedHandCard]);
 
   useEffect(() => {
-    if (!isConnected || !gameId) return;
-
-    if (player.status === "in-room") {
-      navigate("/room/" + gameId, { replace: true });
-      return;
-    }
+    if (!isConnected || !gameId || isSocketLoading || !player.gameId) return;
 
     try {
       setIsLoading(true);
@@ -152,6 +151,8 @@ export default function GamePage() {
           if (result.success) {
             const data = result.data;
             setMyTurn(data.players?.[data.currentTurnIndex]?.id === player.playerId);
+          } else {
+            console.log("Failed to load game:", result.error);
           }
         } catch (err) {
           setError("Failed to load game");
@@ -188,7 +189,7 @@ export default function GamePage() {
     );
   }
 
-  if (!isConnected) {
+  if (!isConnected && player.status === "disconnected") {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-700">
         <div className="p-6 bg-white rounded-lg shadow-md text-center">
@@ -237,25 +238,16 @@ export default function GamePage() {
                 View Scores
               </button>
               <button
-                disabled={true}
                 className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                // onClick={toggleCombos}
+                onClick={() => window.open("/combos", "_blank")}
               >
                 View Combos
               </button>
               <button
-                disabled={true}
                 className="bg-yellow-600 hover:bg-yellow-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                // onClick={toggleHelp}
+                onClick={() => window.open("/cards-library", "_blank")}
               >
-                Help/Rules
-              </button>
-              <button
-                disabled={true}
-                className="bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                // onClick={toggleMenu}
-              >
-                Menu
+                View Card Library
               </button>
             </div>
           </div>

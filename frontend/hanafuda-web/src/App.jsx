@@ -10,6 +10,8 @@ import RoomPage from "./pages/RoomPage";
 import GamePage from "./pages/GamePage";
 import InvalidRouteHandler from "./pages/InvalidRouteHandler";
 import GameLayout from "./GameLayout";
+import ComboPage from "./pages/ComboPage";
+import CardLibraryPage from "./pages/CardLibraryPage";
 
 function AppContent() {
   return (
@@ -21,6 +23,8 @@ function AppContent() {
           <Route path="/room/:roomId" element={<RoomPage />} />
           <Route path="/game/:gameId" element={<GamePage />} />
           <Route path="*" element={<InvalidRouteHandler />} />
+          <Route path="/combos" element={<ComboPage />} />
+          <Route path="/cards-library" element={<CardLibraryPage />} />
         </Routes>
       </GameLayout>
     </BrowserRouter>
