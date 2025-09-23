@@ -45,6 +45,7 @@
     "@services": "dist/services",
     "@interfaces": "dist/interfaces",
     "@core": "dist/core",
-    "@utils": "dist/utils"
+    "@utils": "dist/utils",
+    "@constants": "dist/constants"
   }
 }
