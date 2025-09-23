@@ -136,7 +136,7 @@ const gameReducer = (state, action) => {
         if (roundResult) {
           return {
             ...player,
-            score: roundResult.score,
+            score: roundResult.totalScore,
             captured: [],
           };
         }

@@ -19,7 +19,7 @@ export const COMBOS = {
     name: "Three Lights",
     points: 30,
     cards: ["12-hikari", "8-hikari", "3-hikari", "1-hikari"],
-    exclude: ["paulownia-1"],
+    exclude: ["11-hikari"],
     requiredCount: 3,
     description: "Any three light cards (excluding Rainman)",
   },

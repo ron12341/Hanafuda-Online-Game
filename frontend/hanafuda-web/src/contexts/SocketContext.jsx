@@ -183,13 +183,14 @@ export function SocketProvider({ children }) {
 
   // Auto-reconnect on mount if session exists
   useEffect(() => {
+    console.log("Auto-connecting...");
     if (username && sessionToken && !isConnected && !autoConnectAttempted.current) {
       autoConnectAttempted.current = true;
       connectSocket().catch(error => {
         autoConnectAttempted.current = false;
       });
     }
-  }, [username, sessionToken, isConnected, connectSocket]);
+  }, [username, sessionToken, isConnected]);
 
   // // Set loading to false if no auto-connect is attempted after mount
   // useEffect(() => {

@@ -40,8 +40,6 @@ export default function LobbyPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    console.log("PLAYER: ", player);
-    console.log("IS SOCKET LOADING: ", isSocketLoading);
     if (player.status === "disconnected") {
       navigate("/", { replace: true });
     }

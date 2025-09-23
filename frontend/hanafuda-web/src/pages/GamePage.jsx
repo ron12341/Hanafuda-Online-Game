@@ -32,10 +32,6 @@ export default function GamePage() {
   const handCardsDisabled = shouldAutoSelectFlippedCard;
 
   useEffect(() => {
-    if (player.status === "disconnected") navigate("/");
-  }, [player.status]);
-
-  useEffect(() => {
     if (shouldAutoSelectFlippedCard) {
       setSelectedHandCard(gameState.flippedCard);
     }
@@ -117,14 +113,11 @@ export default function GamePage() {
   };
 
   const handleExitGame = () => {
-    // Navigate to a different route entirely to avoid the fetch
-    navigate("/lobby", { replace: true });
+    clearGame();
+    clearRoom();
 
-    // Then cleanup the game state
-    setTimeout(() => {
-      clearGame();
-      clearRoom();
-    }, 100);
+    // Navigate to a different route entirely to avoid the fetch
+    setTimeout(() => navigate("/lobby"), 100);
   };
 
   useEffect(() => {
@@ -140,7 +133,26 @@ export default function GamePage() {
   }, [selectedHandCard]);
 
   useEffect(() => {
-    if (!isConnected || !gameId || isSocketLoading || !player.gameId) return;
+    if (player.status === "disconnected") {
+      console.log("Redirecting to login page");
+      navigate("/", { replace: true });
+      return;
+    }
+    if (!isConnected || !gameId || isSocketLoading || player.status === "connecting") return;
+
+    if (player.gameId && player.gameId !== gameId) {
+      console.log("Redirecting to game page: ", player.gameId);
+      navigate(`/game/${player.gameId}`, { replace: true });
+      return;
+    } else if (!player.gameId && player.roomId) {
+      console.log("Redirecting to room page: ", player.roomId);
+      navigate(`/room/${player.roomId}`, { replace: true });
+      return;
+    } else if (!player.gameId && !player.roomId) {
+      console.log("Redirecting to lobby page");
+      navigate("/lobby", { replace: true });
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -196,19 +208,6 @@ export default function GamePage() {
           <p className="text-lg text-gray-700 mb-4">You are not connected to the server</p>
           <button onClick={() => navigate("/")} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
             Go to Connection Page
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (player.gameId !== gameId) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-700">
-        <div className="p-6 bg-white rounded-lg shadow-md text-center">
-          <p className="text-lg text-gray-700 mb-4">{"You are not in this game"}</p>
-          <button onClick={() => navigate("/lobby")} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
-            Go Back
           </button>
         </div>
       </div>

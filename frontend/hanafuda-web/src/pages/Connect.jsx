@@ -18,6 +18,8 @@ const Connect = () => {
   useEffect(() => {
     if (isSocketLoading) return;
     if (isConnected && player.status === "connected") {
+      while (player.status === "connecting") {}
+
       navigate("/lobby", { replace: true });
     }
   }, [isConnected, player.status, navigate, isSocketLoading]);

@@ -24,7 +24,9 @@ export default function RoomPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (player.status === "disconnected") navigate("/");
+    if (player.status === "disconnected") {
+      navigate("/", { replace: true });
+    }
   }, [player.status]);
 
   // Join room and fetch data when component mounts or roomId changes
