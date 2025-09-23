@@ -86,8 +86,12 @@ export class Game {
   }
 
   public endRound(): PlayerRoundResult[] {
-    const results = this.players.map(player => player.calculateRoundScore());
-    results.sort((a, b) => b.score - a.score);
+    let limit = 0;
+    if (this.players.length === 3) limit = 88;
+    else if (this.players.length === 4) limit = 66;
+
+    const results = this.players.map(player => player.calculateRoundScore(limit));
+    results.sort((a, b) => b.totalScore - a.totalScore);
 
     // Set next turn to the winner
     this.currentTurnIndex = this.players.findIndex(player => player.getId() === results[0].playerId);
@@ -265,12 +269,6 @@ export class Game {
 
   private nextTurn(): void {
     this.currentTurnIndex = (this.currentTurnIndex + 1) % this.players.length;
-  }
-
-  private calculateScores(): void {
-    this.players.forEach(player => {
-      player.calculateRoundScore();
-    });
   }
 
   private updateLastActivity(): void {

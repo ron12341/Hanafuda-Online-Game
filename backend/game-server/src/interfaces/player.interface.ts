@@ -10,7 +10,9 @@ export interface PlayerGameData {
 export interface PlayerRoundResult {
   playerId: string;
   username: string;
-  score: number;
+  capturedScore: number;
+  comboScore: number;
+  totalScore: number;
 }
 
 export type PlayerStatus = "in-lobby" | "in-room" | "in-game";

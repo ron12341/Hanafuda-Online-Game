@@ -2,6 +2,8 @@ import { PlayerGameStateDTO, PlayerStateDTO } from "@interfaces/dtos/PlayerState
 import { PlayerGameData, PlayerRoundResult } from "@interfaces/player.interface";
 import { HanafudaCard } from "./Card";
 
+import { ComboCalculator } from "@utils/ComboCalculator";
+
 export class Player {
   private socketId: string;
   private id: string;
@@ -143,18 +145,23 @@ export class Player {
     return this.gameData.hand.length === 0;
   }
 
-  calculateRoundScore(): PlayerRoundResult {
+  calculateRoundScore(limit: number): PlayerRoundResult {
     if (!this.gameData) throw new Error("Player has no game data.");
 
-    let sum = 0;
+    let capturedScore = 0;
     for (const card of this.gameData.captured) {
-      sum += card.points;
+      capturedScore += card.points;
     }
-    this.gameData.captured = [];
-    this.gameData.roundScores.push(sum);
-    this.gameData.finalScore += sum;
+    capturedScore -= limit;
 
-    return { playerId: this.id, username: this.name, score: sum };
+    const comboScore = ComboCalculator.calculateTotalScore(this.gameData.captured);
+    const totalScore = capturedScore + comboScore;
+
+    this.gameData.captured = [];
+    this.gameData.roundScores.push(totalScore);
+    this.gameData.finalScore += totalScore;
+
+    return { playerId: this.id, username: this.name, capturedScore, comboScore, totalScore };
   }
 
   getState(): PlayerStateDTO {
