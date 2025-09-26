@@ -1,6 +1,6 @@
 import { HanafudaCard } from "@core/Card";
 import { Player } from "@core/Player";
-import { PlayerGameData } from "./player.interface";
+import { PlayerGameData, PlayerRoundResult } from "./player.interface";
 import { PlayerGameStateDTO } from "./dtos/PlayerState.dto";
 
 export interface GameRules {
@@ -24,11 +24,9 @@ export interface RoundResult {
   winner?: string;
 }
 
-export interface Yaku {
-  name: string;
-  points: number;
-  cards: HanafudaCard[];
-  description: string;
+export interface RoundScore {
+  round: number;
+  roundScores: PlayerRoundResult[];
 }
 
 export interface GameStateDTO {
@@ -41,6 +39,8 @@ export interface GameStateDTO {
   myHand: HanafudaCard[];
   flippedCard: HanafudaCard | undefined;
   deckSize: number;
+  gameScores: RoundScore[];
+  settings: GameSettings;
 }
 
 export interface NextRoundStateDTO {

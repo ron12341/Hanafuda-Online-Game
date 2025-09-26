@@ -31,6 +31,7 @@ export class Player {
       captured: [],
       roundScores: [],
       finalScore: 0,
+      gotWildCard: false,
     };
   }
 
@@ -44,6 +45,12 @@ export class Player {
   joinRoom(roomId: string): void {
     this.roomId = roomId;
     this.status = "in-room";
+  }
+
+  joinGame(gameId: string): void {
+    this.gameId = gameId;
+    this.status = "in-game";
+    this.initializeGameData();
   }
 
   clearGame(): void {
@@ -198,5 +205,13 @@ export class Player {
 
   getFinalScore(): number {
     return this.gameData?.finalScore || 0;
+  }
+
+  gotWildCard(): boolean {
+    return this.gameData?.gotWildCard || false;
+  }
+
+  setGotWildCard(gotWildCard: boolean): void {
+    this.gameData!.gotWildCard = gotWildCard;
   }
 }

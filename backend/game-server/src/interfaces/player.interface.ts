@@ -5,6 +5,7 @@ export interface PlayerGameData {
   captured: HanafudaCard[];
   roundScores: number[];
   finalScore: number;
+  gotWildCard: boolean;
 }
 
 export interface PlayerRoundResult {

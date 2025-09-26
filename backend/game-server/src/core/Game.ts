@@ -11,6 +11,7 @@ import {
   PlayCardResult,
   PlayFlippedCardResult,
   RoundResult,
+  RoundScore,
 } from "@interfaces/game.interface";
 import { PlayerRoundResult } from "@interfaces/player.interface";
 
@@ -19,6 +20,7 @@ export class Game {
   private roomId: string;
   private currentRound: number;
   private players: Player[] = [];
+  private gameScores: RoundScore[] = [];
 
   // Essential Game State Properties
   private deck: HanafudaDeck = new HanafudaDeck();
@@ -41,8 +43,12 @@ export class Game {
     this.currentRound = 1;
     this.flippedCard = undefined;
     this.currentTurnIndex = 0;
+    this.gameScores = [];
 
-    players.forEach(player => player.setGameId(this.id));
+    players.forEach(player => {
+      player.setGameId(this.id);
+      player.joinGame(this.id);
+    });
 
     this.settings = {
       maxPlayers: settings?.maxPlayers || 4,
@@ -78,7 +84,6 @@ export class Game {
   //
 
   public startGame(): void {
-    this.players.forEach(player => player.initializeGameData());
     this.initializeDeck();
     this.dealCards();
 
@@ -86,15 +91,29 @@ export class Game {
   }
 
   public endRound(): PlayerRoundResult[] {
+    // The remaining cards on the table goes to the player with the "wildcard"
+    if (this.table.length > 0) {
+      for (let player of this.players) {
+        if (player.gotWildCard()) {
+          this.table.forEach(card => player.capture(card));
+          this.table = [];
+          player.setGotWildCard(false);
+          break;
+        }
+      }
+    }
+
+    // Calculate round scores
     let limit = 0;
     if (this.players.length === 3) limit = 88;
     else if (this.players.length === 4) limit = 66;
-
     const results = this.players.map(player => player.calculateRoundScore(limit));
-    results.sort((a, b) => b.totalScore - a.totalScore);
 
     // Set next turn to the winner
     this.currentTurnIndex = this.players.findIndex(player => player.getId() === results[0].playerId);
+
+    // add score to round scores
+    this.gameScores.push({ round: this.currentRound, roundScores: results });
 
     return results;
   }
@@ -124,6 +143,10 @@ export class Game {
 
     this.updateLastActivity();
 
+    if (cardId === "11-kasu") {
+      player.setGotWildCard(true);
+    }
+
     return { handCard, targetCard, flippedCard: this.flippedCard! };
   }
 
@@ -138,6 +161,10 @@ export class Game {
     this.drawFlippedCard();
 
     this.updateLastActivity();
+
+    if (cardId === "11-kasu") {
+      player.setGotWildCard(true);
+    }
 
     return { handCard, flippedCard: this.flippedCard! };
   }
@@ -160,6 +187,10 @@ export class Game {
 
     this.updateLastActivity();
 
+    if (cardId === "11-kasu") {
+      player.setGotWildCard(true);
+    }
+
     return { targetCardId: targetCard.id, currentTurnIndex: this.currentTurnIndex };
   }
 
@@ -174,6 +205,10 @@ export class Game {
     this.nextTurn();
 
     this.updateLastActivity();
+
+    if (cardId === "11-kasu") {
+      player.setGotWildCard(true);
+    }
 
     return { currentTurnIndex: this.currentTurnIndex };
   }
@@ -208,6 +243,8 @@ export class Game {
       myHand: this.getPlayerHand(forPlayerId),
       flippedCard: this.flippedCard,
       deckSize: this.deck.getRemainingCount(),
+      gameScores: this.gameScores,
+      settings: this.settings,
     };
   }
 
