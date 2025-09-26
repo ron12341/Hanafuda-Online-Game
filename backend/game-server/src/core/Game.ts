@@ -271,8 +271,15 @@ export class Game {
     return this.lastActivityTimestamp;
   }
 
-  public removePlayer(playerId: string): void {
-    this.players = this.players.filter(player => player.getId() !== playerId);
+  public removePlayer(playerId: string): Player | undefined {
+    const index = this.players.findIndex(player => player.getId() === playerId);
+    if (index === -1) return undefined;
+
+    const player = this.players[index];
+    player.clearRoom();
+    this.players.splice(index, 1);
+
+    return player;
   }
 
   //

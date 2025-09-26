@@ -57,6 +57,7 @@ export interface ClientToServerEvents {
   "start-game": () => void;
   "request-game-state": (data: { gameId: string }) => void;
   "play-card": (data: { gameId: string; playerId: string; cardId: string; targetCardId?: string; action: string; cardType: string }) => void;
+  "leave-game": (data: { playerId: string; gameId: string }) => void;
 
   // Stats Events
   stats: () => void;
@@ -127,6 +128,9 @@ export interface ServerToClientEvents {
   "game-started": (data: { gameId: string }) => void;
   "start-game-error": (data: { error: string }) => void;
   "game-state": (data: { state: GameStateDTO }) => void;
+  "leave-game-error": (data: { error: string }) => void;
+  "leave-game-success": (data: { gameId: string }) => void;
+  "player-left-game": (data: { gameId: string; playerId: string }) => void;
 
   // Card Play Events
   "play-card-error": (data: { error: string }) => void;

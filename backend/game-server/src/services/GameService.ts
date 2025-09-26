@@ -10,6 +10,7 @@ import {
   RoundResult,
 } from "@interfaces/game.interface";
 import { PlayerRoundResult } from "@interfaces/player.interface";
+import { Player } from "@core/Player";
 
 export class GameService {
   private games: Map<string, Game> = new Map<string, Game>();
@@ -25,6 +26,7 @@ export class GameService {
   public setupSocketHandlers(socket: HanafudaSocket) {
     socket.on("request-game-state", this.handleGameStateRequest.bind(this, socket));
     socket.on("play-card", this.handlePlayCard.bind(this, socket));
+    socket.on("leave-game", data => this.handleLeaveGame(socket, { playerId: data.playerId, gameId: data.gameId }));
   }
 
   public addGame(game: Game): void {
@@ -35,12 +37,15 @@ export class GameService {
     return this.games.get(gameId);
   }
 
-  public removePlayerFromGame(game: Game, playerId: string): void {
+  public removePlayerFromGame(game: Game, playerId: string): Player | undefined {
     if (!game) return;
-    game.removePlayer(playerId);
+    const player = game.removePlayer(playerId);
     if (game.getPlayers().length === 0) {
       this.removeGame(game.getId());
     }
+
+    console.log(`Player ${playerId} left game ${game.getId()}`);
+    return player;
   }
 
   //
@@ -67,6 +72,29 @@ export class GameService {
   //
   //  SOCKET HANDLERS
   //
+
+  private handleLeaveGame(socket: HanafudaSocket, data: { playerId: string; gameId: string }) {
+    try {
+      const game = this.getGameById(data.gameId);
+      if (!game) throw new Error("Game not found");
+
+      const player = this.removePlayerFromGame(game!, data.playerId);
+      this.services.roomService.removePlayerFromRoom(data.gameId, data.playerId);
+      this.services.lobbyService.addPlayerToLobby(player!);
+
+      socket.data.roomId = undefined;
+      socket.data.gameId = undefined;
+      socket.leave(data.gameId);
+
+      socket.emit("leave-game-success", { gameId: data.gameId });
+
+      socket.to(data.gameId).emit("player-left-game", { playerId: data.playerId, gameId: data.gameId });
+
+      this.services.sessionService.updateSessionActivity(socket.data.sessionToken!);
+    } catch (error: any) {
+      socket.emit("leave-game-error", { error: error.message });
+    }
+  }
 
   private handleGameStateRequest(socket: HanafudaSocket, data: { gameId: string }) {
     const game = this.getGameById(data.gameId);
