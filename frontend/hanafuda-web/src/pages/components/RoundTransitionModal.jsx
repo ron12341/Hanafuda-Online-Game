@@ -8,6 +8,8 @@ const RoundTransitionModal = ({ duration = 5, message = "Round ended - Starting 
   const progressRef = useRef(null);
   const startTimeRef = useRef(null);
 
+  const sortedRoundResult = roundResult.sort((a, b) => b.totalScore - a.totalScore);
+
   useEffect(() => {
     // Initialize values
     setCountdown(duration);
@@ -61,11 +63,11 @@ const RoundTransitionModal = ({ duration = 5, message = "Round ended - Starting 
         </div>
 
         {/* Round results display with scroll if needed */}
-        {roundResult.length > 0 && (
+        {sortedRoundResult.length > 0 && (
           <div className="mb-4 flex-1 min-h-0 overflow-hidden">
             <h3 className="text-lg font-semibold text-yellow-300 mb-2 text-center">Round Results</h3>
             <div className="space-y-2 overflow-y-auto pr-1">
-              {roundResult.map((result, index) => {
+              {sortedRoundResult.map((result, index) => {
                 const captured = result.capturedScore || 0;
                 const combos = result.comboScore || 0;
                 const total = captured + combos;

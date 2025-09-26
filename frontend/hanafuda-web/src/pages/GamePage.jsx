@@ -9,6 +9,7 @@ import Card from "./components/Card";
 import RoundTransitionModal from "./components/RoundTransitionModal";
 import GameOverModal from "./components/GameOverModal";
 import CapturedCardsModal from "./components/CapturedCardsModal";
+import PlayerScoresModal from "./components/PlayerScoresModal";
 
 export default function GamePage() {
   const { gameId } = useParams();
@@ -21,6 +22,7 @@ export default function GamePage() {
   const [selectedHandCard, setSelectedHandCard] = useState(null);
   const [filteredTableCards, setFilteredTableCards] = useState([]);
 
+  const [showScoresModal, setShowScoresModal] = useState(false);
   const [showCapturedModal, setShowCapturedModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +40,7 @@ export default function GamePage() {
   }, [shouldAutoSelectFlippedCard, gameState.flippedCard]);
 
   const isSameMonth = (card1, card2) => {
-    return card1.month === card2.month;
+    return card1.month === card2.month || card1.id === "11-kasu" || card2.id === "11-kasu";
   };
 
   const handleSelectHandCard = handCard => {
@@ -230,9 +232,8 @@ export default function GamePage() {
           <div className="flex items-center space-x-4">
             <div className="flex flex-wrap gap-2">
               <button
-                disabled={true}
                 className="bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                // onClick={toggleScores}
+                onClick={() => setShowScoresModal(true)}
               >
                 View Scores
               </button>
@@ -247,6 +248,13 @@ export default function GamePage() {
                 onClick={() => window.open("/cards-library", "_blank")}
               >
                 View Card Library
+              </button>
+              <button
+                disabled={true}
+                className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => window.open("/cards-library", "_blank")}
+              >
+                Leave Game
               </button>
             </div>
           </div>
@@ -400,6 +408,8 @@ export default function GamePage() {
           capturedCards={selectedPlayer?.captured || []}
         />
       )}
+
+      {showScoresModal && <PlayerScoresModal isOpen={showScoresModal} onClose={() => setShowScoresModal(false)} gameState={gameState} />}
     </div>
   );
 }

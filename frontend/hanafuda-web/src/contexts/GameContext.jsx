@@ -18,6 +18,8 @@ const gameReducer = (state, action) => {
         myHand: action.myHand || state.myHand,
         flippedCard: action.flippedCard || state.flippedCard,
         deckSize: action.deckSize || state.deckSize,
+        settings: action.settings || state.settings,
+        gameScores: action.gameScores || state.gameScores,
         isOperating: false,
         error: null,
       };
@@ -136,16 +138,19 @@ const gameReducer = (state, action) => {
         if (roundResult) {
           return {
             ...player,
-            score: roundResult.totalScore,
+            score: player.score + roundResult.score,
             captured: [],
           };
         }
         return player;
       });
 
+      const updatedgameScores = [...state.gameScores, { round: state.currentRound, roundScores: roundResults }];
+
       return {
         ...state,
         roundResult: action.roundResult,
+        gameScores: updatedgameScores,
         players: updatedPlayers,
         isOperating: false,
         operationError: null,
@@ -231,6 +236,8 @@ export const GameProvider = ({ children }) => {
     myHand: [],
     flippedCard: null,
     deckSize: 0,
+    settings: {},
+    gameScores: [],
     error: null,
     isLoading: false,
     operationError: null,
@@ -295,6 +302,7 @@ export const GameProvider = ({ children }) => {
 
     // In your game context
     const handleRoundTransition = data => {
+      console.log("Round transition:", data);
       dispatch({
         type: "ROUND_OVER",
         roundResult: data.roundResult,
@@ -343,6 +351,7 @@ export const GameProvider = ({ children }) => {
 
       return new Promise(resolve => {
         const handleSuccess = gameData => {
+          console.log("Received game data:", gameData);
           cleanupListeners();
           dispatch({
             type: "UPDATE_GAME_STATE",
@@ -355,6 +364,8 @@ export const GameProvider = ({ children }) => {
             myHand: gameData.state.myHand,
             flippedCard: gameData.state.flippedCard,
             deckSize: gameData.state.deckSize,
+            settings: gameData.state.settings,
+            gameScores: gameData.state.gameScores,
           });
           resolve({ success: true, data: gameData.state });
         };
