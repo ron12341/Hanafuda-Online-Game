@@ -192,6 +192,19 @@ const gameReducer = (state, action) => {
         error: null,
       };
 
+    case "PLAYER_LEFT_GAME": {
+      //remove the palyer in the game state
+      const updatedPlayers = state.players.filter(player => player.id !== action.playerId);
+
+      return {
+        ...state,
+        players: updatedPlayers,
+        isOperating: false,
+        operationError: null,
+        error: null,
+      };
+    }
+
     case "CLEAR_GAME":
       return {
         id: "",
@@ -330,15 +343,22 @@ export const GameProvider = ({ children }) => {
       dispatch({ type: "GAME_OVER", winner: data.winner, finalScores: data.finalScores });
     };
 
+    const handlePlayerLeftGame = data => {
+      console.log("Player left game:", data);
+      dispatch({ type: "PLAYER_LEFT_GAME", playerId: data.playerId });
+    };
+
     socket.on("player-played-card", handlePlayerPlayedCard);
     socket.on("player-played-flipped-card", handlePlayerPlayedFlippedCard);
     socket.on("round-transition", handleRoundTransition);
     socket.on("game-over", handleGameOver);
+    socket.on("player-left-game", handlePlayerLeftGame);
     return () => {
       socket.off("player-played-card", handlePlayerPlayedCard);
       socket.off("player-played-flipped-card", handlePlayerPlayedFlippedCard);
       socket.off("round-transition", handleRoundTransition);
       socket.off("game-over", handleGameOver);
+      socket.off("player-left-game", handlePlayerLeftGame);
     };
   }, [socket, state]);
 
@@ -434,6 +454,43 @@ export const GameProvider = ({ children }) => {
     [emitSafe, socket]
   );
 
+  const leaveGame = useCallback(
+    ({ gameId, playerId }) => {
+      if (!socket) {
+        dispatch({ type: "GAME_OPERATION_ERROR", error: "No socket connection" });
+        return;
+      }
+      console.log("Leaving game...");
+
+      dispatch({ type: "GAME_OPERATION_START" });
+
+      return new Promise(resolve => {
+        const handleSuccess = () => {
+          cleanupListeners();
+          dispatch({ type: "GAME_OPERATION_SUCCESS" });
+          resolve({ success: true });
+        };
+
+        const handleError = data => {
+          cleanupListeners();
+          dispatch({ type: "GAME_OPERATION_ERROR", error: data.error });
+          resolve({ success: false, error: data.error });
+        };
+
+        const cleanupListeners = () => {
+          socket.off("leave-game-success", handleSuccess);
+          socket.off("leave-game-error", handleError);
+        };
+
+        socket.once("leave-game-success", handleSuccess);
+        socket.once("leave-game-error", handleError);
+
+        emitSafe("leave-game", { gameId, playerId });
+      });
+    },
+    [emitSafe, socket]
+  );
+
   const clearGame = useCallback(() => {
     dispatch({ type: "CLEAR_GAME" });
     player.setGameId(null);
@@ -449,6 +506,7 @@ export const GameProvider = ({ children }) => {
     fetchGameData,
     playCard,
     clearGame,
+    leaveGame,
   };
 
   return <GameStateContext.Provider value={value}>{children}</GameStateContext.Provider>;

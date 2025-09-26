@@ -47,15 +47,15 @@ export default function LobbyPage() {
     if (isSocketLoading) return;
     setIsLoading(true);
     try {
-      if (player.gameId) {
-        navigate(`/game/${player.gameId}`, { replace: true });
-        return;
-      }
+      // if (player.gameId) {
+      //   navigate(`/game/${player.gameId}`, { replace: true });
+      //   return;
+      // }
 
-      if (player.roomId) {
-        navigate(`/room/${player.roomId}`, { replace: true });
-        return;
-      }
+      // if (player.roomId) {
+      //   navigate(`/room/${player.roomId}`, { replace: true });
+      //   return;
+      // }
 
       fetchLobbyData();
     } catch (error) {

@@ -15,7 +15,7 @@ export default function GamePage() {
   const { gameId } = useParams();
   const { isConnected, isSocketLoading } = useSocket();
   const { player } = usePlayer();
-  const { gameState, fetchGameData, playCard, clearGame } = useGame();
+  const { gameState, fetchGameData, playCard, clearGame, leaveGame } = useGame();
   const { clearRoom } = useRoom();
   const [myTurn, setMyTurn] = useState(false);
 
@@ -26,6 +26,7 @@ export default function GamePage() {
   const [showCapturedModal, setShowCapturedModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const navigate = useNavigate();
 
@@ -191,6 +192,23 @@ export default function GamePage() {
     setMyTurn(isMyTurn());
   }, [gameState?.currentTurnIndex, player?.id]);
 
+  const handleLeaveGame = async () => {
+    try {
+      const result = await leaveGame({ playerId: player.playerId, gameId: gameState.id });
+
+      if (result.success) {
+        console.log("Successfully left the game");
+        handleExitGame();
+      } else {
+        console.log("Failed to leave the game");
+        console.log(result.error);
+        setError(result.error);
+      }
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
   const isMyTurn = () => {
     return gameState.players?.[gameState.currentTurnIndex]?.id === player.playerId;
   };
@@ -250,9 +268,8 @@ export default function GamePage() {
                 View Card Library
               </button>
               <button
-                disabled={true}
                 className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => window.open("/cards-library", "_blank")}
+                onClick={handleLeaveGame}
               >
                 Leave Game
               </button>
