@@ -11,6 +11,8 @@ import GameOverModal from "./components/GameOverModal";
 import CapturedCardsModal from "./components/CapturedCardsModal";
 import PlayerScoresModal from "./components/PlayerScoresModal";
 
+import { getCardSize, getHandCardSize } from "../utils/calculateCardSize";
+
 export default function GamePage() {
   const { gameId } = useParams();
   const { isConnected, isSocketLoading } = useSocket();
@@ -21,6 +23,8 @@ export default function GamePage() {
 
   const [selectedHandCard, setSelectedHandCard] = useState(null);
   const [filteredTableCards, setFilteredTableCards] = useState([]);
+  const [cardSize, setCardSize] = useState(getCardSize());
+  const [handCardSize, setHandCardSize] = useState("medium");
 
   const [showScoresModal, setShowScoresModal] = useState(false);
   const [showCapturedModal, setShowCapturedModal] = useState(false);
@@ -84,6 +88,9 @@ export default function GamePage() {
       }
 
       if (!result.success) {
+        {
+          cardSize;
+        }
         setError(result.error);
       }
 
@@ -192,6 +199,25 @@ export default function GamePage() {
     setMyTurn(isMyTurn());
   }, [gameState?.currentTurnIndex, player?.id]);
 
+  useEffect(() => {
+    if (gameState?.myHand) {
+      const newSize = getHandCardSize(gameState.myHand.length);
+      setHandCardSize(newSize);
+    }
+  }, [gameState?.myHand]);
+
+  useEffect(() => {
+    if (!gameState) return;
+
+    const handleResize = () => {
+      setCardSize(getCardSize());
+      setHandCardSize(getHandCardSize(gameState.myHand.length));
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [window.innerWidth, gameState.myHand]);
+
   const handleLeaveGame = async () => {
     try {
       const result = await leaveGame({ playerId: player.playerId, gameId: gameState.id });
@@ -235,184 +261,162 @@ export default function GamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-800 text-white p-4 flex flex-col">
+    <div className="w-full h-screen bg-gray-800 text-white p-1 sm:p-2 md:p-3 flex flex-col justify-between overflow-hidden gap-1">
       {/* Top Section */}
-      <div className="bg-black bg-opacity-70 rounded-xl p-4 mb-4 shadow-lg">
-        <div className="flex flex-col md:flex-row justify-between items-center">
-          <div className="text-center md:text-left mb-4 md:mb-0">
-            <div className="flex flex-wrap items-center gap-4 mt-2">
-              <p className="text-yellow-300">{gameState.players[gameState.currentTurnIndex]?.name ?? "Unknown"}'s Turn</p>
-              <p className="text-blue-300">Round: {gameState.currentRound}</p>
-              {handCardsDisabled && <p className="text-red-300 animate-pulse">⚠️ Flipped card must be played first</p>}
-            </div>
-          </div>
+      <div className="bg-black bg-opacity-70 rounded-lg p-2 sm:p-3 md:p-4 shadow-lg flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-3 md:gap-4">
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 md:gap-4 text-center sm:text-left min-w-0 flex-shrink">
+          <p className="text-yellow-300 text-xs sm:text-sm md:text-base lg:text-lg truncate">
+            {gameState.players[gameState.currentTurnIndex]?.name ?? "Unknown"}'s Turn
+          </p>
+          <p className="text-blue-300 text-xs sm:text-sm md:text-base lg:text-lg">Round: {gameState.currentRound}</p>
+          {handCardsDisabled && (
+            <p className="text-red-300 text-xs sm:text-sm md:text-base animate-pulse hidden xs:inline">⚠️ Play flipped card first</p>
+          )}
+        </div>
 
-          <div className="flex items-center space-x-4">
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => setShowScoresModal(true)}
-              >
-                View Scores
-              </button>
-              <button
-                className="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => window.open("/combos", "_blank")}
-              >
-                View Combos
-              </button>
-              <button
-                className="bg-yellow-600 hover:bg-yellow-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => window.open("/cards-library", "_blank")}
-              >
-                View Card Library
-              </button>
-              <button
-                className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleLeaveGame}
-              >
-                Leave Game
-              </button>
-            </div>
-          </div>
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-4 p-1 sm:p-2">
+          <button
+            className="bg-green-600 hover:bg-green-700 px-3 py-2 sm:px-4 sm:py-2 md:px-5 md:py-3 rounded-lg text-xs sm:text-sm md:text-base transition-colors"
+            onClick={() => setShowScoresModal(true)}
+          >
+            Scores
+          </button>
+          <button
+            className="bg-purple-600 hover:bg-purple-700 px-3 py-2 sm:px-4 sm:py-2 md:px-5 md:py-3 rounded-lg text-xs sm:text-sm md:text-base"
+            onClick={() => window.open("/combos", "_blank")}
+          >
+            Combos
+          </button>
+          <button
+            className="bg-yellow-600 hover:bg-yellow-700 px-3 py-2 sm:px-4 sm:py-2 md:px-5 md:py-3 rounded-lg text-xs sm:text-sm md:text-base"
+            onClick={() => window.open("/cards-library", "_blank")}
+          >
+            Library
+          </button>
+          <button
+            className="bg-red-600 hover:bg-red-700 px-3 py-2 sm:px-4 sm:py-2 md:px-5 md:py-3 rounded-lg text-xs sm:text-sm md:text-base"
+            onClick={handleLeaveGame}
+          >
+            Leave
+          </button>
         </div>
       </div>
 
-      {/* Players Captured Cards info */}
-      <div className="bg-black bg-opacity-50 rounded-xl p-3 mb-4 flex justify-around">
+      {/* Players' Captured Cards */}
+      <div className="bg-black bg-opacity-50 rounded-lg p-2 sm:p-3 md:p-4 flex justify-center sm:justify-around items-center gap-2 sm:gap-3 md:gap-4 overflow-x-auto min-h-[50px] sm:min-h-[60px] md:min-h-[70px]">
         {gameState.players.map(gamePlayer => (
           <div
             key={gamePlayer.id}
-            className={`
-        text-center px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200
-        border-2
-        ${
-          gamePlayer.id === player.playerId
-            ? "bg-blue-700 border-blue-500 hover:border-yellow-300"
-            : "bg-gray-800 border-gray-600 hover:border-yellow-400"
-        }
-      `}
+            className={`px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-4 text-center rounded-lg border-2 cursor-pointer text-xs sm:text-sm md:text-base min-w-[85px] sm:min-w-[110px] md:min-w-[130px] ${
+              gamePlayer.id === player.playerId
+                ? "bg-blue-700 border-blue-500 hover:border-yellow-300"
+                : "bg-gray-800 border-gray-600 hover:border-yellow-400"
+            }`}
             onClick={() => handleShowCapturedCards(gamePlayer)}
           >
-            <div className="font-semibold">{gamePlayer.name}</div>
-            <div className="text-sm">Captured: {gamePlayer.captured.length}</div>
+            <div className="font-semibold truncate text-xs sm:text-sm md:text-base">{gamePlayer.name}</div>
+            <div className="mt-1 sm:mt-2 text-xs sm:text-sm md:text-base">Cards: {gamePlayer.captured.length}</div>
           </div>
         ))}
       </div>
-
       {/* Game Board */}
-      <div className="flex-1 flex flex-col lg:flex-row gap-6 mb-4">
-        <div className="flex-1 bg-green-900 bg-opacity-50 rounded-xl p-6 flex flex-col lg:flex-row gap-4">
-          {/* Flipped Card & Deck Area */}
-          <div className="min-w-[350px] bg-black bg-opacity-30 rounded-lg p-4 flex items-center justify-evenly">
-            <div className="text-center">
-              <h3 className="text-yellow-300 font-semibold mb-2">Flipped Card</h3>
-
-              {gameState.flippedCard ? (
-                <Card
-                  card={gameState.flippedCard}
-                  selected={selectedHandCard?.id === gameState.flippedCard.id}
-                  size="medium"
-                  src={gameState.flippedCard.image}
-                  alt={gameState.flippedCard.name}
-                  cardType="flipped"
-                  handCardsDisabled={handCardsDisabled}
-                />
-              ) : (
-                <Card card={undefined} size="medium" cardType="flipped" />
-              )}
-            </div>
-
-            <div className="text-center">
-              <h2 className="text-yellow-200 font-semibold mb-4">Deck</h2>
-              <div className="relative">
-                <div className="w-24 h-36 rounded-lg bg-gray-800 shadow-xl flex items-center justify-center">
-                  <span className="text-white text-xl">{gameState.deckSize}</span>
-                </div>
-              </div>
-            </div>
+      <div className="flex-1 flex flex-col lg:flex-row gap-1 sm:gap-2 items-stretch justify-center min-h-0">
+        {/* Flipped & Deck */}
+        <div className="bg-black bg-opacity-30 rounded-lg p-1 sm:p-2 flex items-center justify-evenly min-w-[200px] sm:min-w-[250px] lg:min-w-[280px]">
+          <div className="text-center">
+            <h3 className="text-yellow-300 font-semibold text-xs sm:text-sm mb-1">Flipped Card</h3>
+            {gameState.flippedCard ? (
+              <Card
+                card={gameState.flippedCard}
+                selected={selectedHandCard?.id === gameState.flippedCard.id}
+                size={cardSize}
+                src={gameState.flippedCard.image}
+                alt={gameState.flippedCard.name}
+                cardType="flipped"
+                handCardsDisabled={handCardsDisabled}
+              />
+            ) : (
+              <Card card={undefined} size={cardSize} cardType="flipped" />
+            )}
           </div>
 
-          {/* Table Cards */}
-          <div className="flex-1 bg-black bg-opacity-30 rounded-lg p-4 flex flex-wrap justify-center items-center gap-4">
-            {gameState.table &&
-              gameState.table.map(
-                card =>
-                  card && (
-                    <Card
-                      key={card.id}
-                      card={card}
-                      onClick={() => handleCaptureCard(card)}
-                      selected={selectedHandCard?.id === card.id}
-                      size="medium"
-                      src={card.image}
-                      alt={card.name}
-                      isDisabled={selectedHandCard && !isSameMonth(selectedHandCard, card)}
-                      isSelectable={!!selectedHandCard}
-                      cardType="table"
-                    />
-                  )
-              )}
-          </div>
-
-          {selectedHandCard && filteredTableCards.length <= 0 && myTurn && (
-            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 z-50">
-              <button
-                onClick={() => handleDiscardCard(selectedHandCard)}
-                className="px-8 py-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg transition-all duration-200 text-lg"
-              >
-                📤 Discard Card
-              </button>
+          <div className="text-center">
+            <h2 className="text-yellow-200 font-semibold text-xs sm:text-sm mb-1">Deck</h2>
+            <div className="w-12 sm:w-16 h-16 sm:h-20 rounded-lg bg-gray-800 shadow-lg flex items-center justify-center">
+              <span className="text-sm sm:text-base">{gameState.deckSize}</span>
             </div>
-          )}
+          </div>
         </div>
-      </div>
 
-      <div className="bg-black bg-opacity-70 rounded-xl p-4 shadow-lg">
-        <div className="flex flex-col md:flex-row items-center">
-          <div className="flex-1">
-            <h2 className="text-green-300 font-semibold mb-3 text-center md:text-left">
-              {myTurn ? (
-                <>
-                  Your Turn
-                  {handCardsDisabled && <span className="text-red-300 text-sm ml-2">(Play flipped card first)</span>}
-                </>
-              ) : (
-                "Waiting for your turn..."
-              )}
-            </h2>
-            <div className="flex flex-wrap justify-center gap-3">
-              {gameState.myHand &&
-                gameState.myHand.map(card => (
+        <div className="flex-1 bg-black bg-opacity-30 rounded-lg p-1 sm:p-2 overflow-auto min-h-0">
+          <div className="flex flex-wrap justify-center items-center gap-x-2 gap-y-1 min-h-full content-center">
+            {gameState.table?.map(
+              card =>
+                card && (
                   <Card
                     key={card.id}
                     card={card}
-                    onClick={() => handleSelectHandCard(card)}
+                    onClick={() => handleCaptureCard(card)}
                     selected={selectedHandCard?.id === card.id}
-                    size="medium"
+                    size={cardSize}
                     src={card.image}
                     alt={card.name}
-                    cardType="hand"
-                    isDisabled={handCardsDisabled}
+                    isDisabled={selectedHandCard && !isSameMonth(selectedHandCard, card)}
+                    isSelectable={!!selectedHandCard}
+                    cardType="table"
                   />
-                ))}
-            </div>
+                )
+            )}
           </div>
         </div>
       </div>
 
-      {/* Round transition notification */}
+      {/* Player Hand */}
+      <div className="bg-black bg-opacity-70 rounded-lg pt-3 pb-3 flex flex-col items-center">
+        <h2 className="text-green-300 font-semibold text-xs mb-1">
+          {myTurn ? (
+            <>
+              Your Turn
+              {handCardsDisabled && <span className="text-red-300 ml-1">(Play flipped card)</span>}
+            </>
+          ) : (
+            "Waiting..."
+          )}
+        </h2>
+
+        <div className="flex flex-wrap justify-center gap-1 max-h-32 sm:max-h-40">
+          {gameState.myHand?.map(card => (
+            <Card
+              key={card.id}
+              card={card}
+              onClick={() => handleSelectHandCard(card)}
+              selected={selectedHandCard?.id === card.id}
+              size={handCardSize}
+              src={card.image}
+              alt={card.name}
+              cardType="hand"
+              isDisabled={handCardsDisabled}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Discard Button */}
+      {selectedHandCard && filteredTableCards.length <= 0 && myTurn && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 z-50">
+          <button
+            onClick={() => handleDiscardCard(selectedHandCard)}
+            className="px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg sm:rounded-xl shadow-lg transition-all text-xs sm:text-sm md:text-base lg:text-lg"
+          >
+            📤 Discard
+          </button>
+        </div>
+      )}
+
+      {/* Modals */}
       {gameState.showRoundTransition && <RoundTransitionModal duration={5} roundResult={gameState.roundResult} />}
 
-      <GameOverModal
-        // isGameOver={gameState.isGameOver}
-        // winner={gameState.winner}
-        // scores={gameState.scores}
-        isGameOver={gameState.isGameOver}
-        winner={gameState.winner}
-        scores={gameState.finalScores}
-        onExit={handleExitGame}
-      />
+      <GameOverModal isGameOver={gameState.isGameOver} winner={gameState.winner} scores={gameState.finalScores} onExit={handleExitGame} />
 
       {showCapturedModal && selectedPlayer && (
         <CapturedCardsModal

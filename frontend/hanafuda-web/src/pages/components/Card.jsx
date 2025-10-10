@@ -24,6 +24,10 @@ const Card = ({
       width: "w-16",
       height: "h-32",
     },
+    xsmall: {
+      width: "w-12",
+      height: "h-24",
+    },
   };
 
   const { width, height } = sizeClasses[size] || sizeClasses.medium;
@@ -43,7 +47,7 @@ const Card = ({
       <div
         className={`
           rounded-lg shadow-lg flex flex-col justify-between transition-all duration-200
-          ${selected ? "ring-4 ring-yellow-400 transform -translate-y-2" : ""}
+          ${selected ? "ring-4 ring-yellow-400 transform -translate-y-1" : ""}
           ${shouldShowPointer ? "cursor-pointer hover:-translate-y-1" : ""}
           ${width} ${height}
           ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}
