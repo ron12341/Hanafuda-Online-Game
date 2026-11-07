@@ -130,10 +130,7 @@ export default function RoomPage() {
       <div className="flex items-center justify-center min-h-screen bg-gray-700">
         <div className="p-6 bg-white rounded-lg shadow-md text-center">
           <p className="text-lg text-gray-700 mb-4">{localError || "You are not in the correct room"}</p>
-          <button
-            onClick={() => navigate(`/room/${player.roomId}`)}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
+          <button onClick={() => navigate(`/room/${player.roomId}`)} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
             Go to your room
           </button>
         </div>
@@ -141,7 +138,7 @@ export default function RoomPage() {
     );
   }
 
-  const allPlayersReady = room.players.every(p => p.isReady) && room.players.length > 0;
+  const allPlayersReady = room.players.every((p) => p.isReady) && room.players.length > 0;
   const isRoomOwner = player.playerId === room.creatorId;
 
   return (
@@ -150,11 +147,8 @@ export default function RoomPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 p-4 bg-gray-700 rounded-lg shadow-md">
           <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-white">Room: {room.name || "Unnamed Room"}</h1>
-            <p className="text-gray-200 text-sm mt-1">
-              Room ID: {room.id}
-              {isRoomOwner && " • You are the room owner"}
-            </p>
+            <h1 className="text-2xl md:text-3xl font-bold text-white">Room Name: {room.name || "Unnamed Room"}</h1>
+            <p className="text-gray-200 text-sm mt-1">{isRoomOwner && " • You are the room owner"}</p>
           </div>
           <button
             onClick={handleLeaveRoom}
@@ -186,7 +180,7 @@ export default function RoomPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {room.players.length > 0 ? (
-              room.players.map(roomPlayer => (
+              room.players.map((roomPlayer) => (
                 <div
                   key={roomPlayer.id}
                   className={`flex items-center justify-between p-4 rounded-lg border-l-4 ${
@@ -197,11 +191,7 @@ export default function RoomPage() {
                     {roomPlayer.name}
                     {roomPlayer.id === player.playerId && <span className="ml-2 text-blue-500">(You)</span>}
                   </span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      roomPlayer.isReady ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${roomPlayer.isReady ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>
                     {roomPlayer.isReady ? "Ready" : "Not Ready"}
                   </span>
                 </div>
@@ -230,9 +220,7 @@ export default function RoomPage() {
               onClick={handleStartGame}
               disabled={room.isOperating || !allPlayersReady || room.players.length < room.settings.minPlayers}
               className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                allPlayersReady && room.players.length >= room.settings.minPlayers
-                  ? "bg-blue-500 text-white hover:bg-blue-600"
-                  : "bg-gray-300 text-gray-500"
+                allPlayersReady && room.players.length >= room.settings.minPlayers ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-300 text-gray-500"
               } disabled:cursor-not-allowed`}
             >
               {room.isOperating ? "Starting..." : "Start Game"}

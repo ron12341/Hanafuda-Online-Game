@@ -3,13 +3,13 @@ import Navbar from "./pages/components/Navbar";
 
 export default function GameLayout({ children }) {
   const location = useLocation();
-  const locationPathname = location.pathname;
-  const showNavbar = locationPathname !== "/";
+  const showNavbar = location.pathname !== "/";
 
   return (
-    <div className="min-h-screen bg-gray-800">
+    <div className="h-[100dvh] bg-gray-800 flex flex-col overflow-hidden">
       {showNavbar && <Navbar />}
-      <main className="flex-1 overflow-hidden">{children}</main>
+
+      <main className="flex-1 min-h-0 overflow-auto">{children}</main>
     </div>
   );
 }

@@ -18,7 +18,9 @@ const Connect = () => {
   useEffect(() => {
     if (isSocketLoading) return;
     if (isConnected && player.status === "connected") {
-      while (player.status === "connecting") {}
+      while (player.status === "connecting") {
+        /* empty */
+      }
 
       navigate("/lobby", { replace: true });
     }
@@ -43,7 +45,7 @@ const Connect = () => {
     }
   };
 
-  const validateUsername = name => {
+  const validateUsername = (name) => {
     const trimmed = name.trim();
 
     if (!trimmed) {
@@ -69,7 +71,7 @@ const Connect = () => {
     return true;
   };
 
-  const handleKeyPress = e => {
+  const handleKeyPress = (e) => {
     if (e.key === "Enter") {
       handleConnect();
     }
@@ -104,7 +106,7 @@ const Connect = () => {
               id="username"
               type="text"
               value={inputUsername}
-              onChange={e => {
+              onChange={(e) => {
                 setInputUsername(e.target.value);
                 setLocalError("");
               }}

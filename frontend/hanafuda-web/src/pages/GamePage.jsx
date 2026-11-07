@@ -48,7 +48,7 @@ export default function GamePage() {
     return card1.month === card2.month || card1.id === "11-kasu" || card2.id === "11-kasu";
   };
 
-  const handleSelectHandCard = handCard => {
+  const handleSelectHandCard = (handCard) => {
     if (handCardsDisabled && myTurn) return; // Prevent selection when hand is disabled
 
     if (handCard === selectedHandCard) {
@@ -58,12 +58,12 @@ export default function GamePage() {
     }
   };
 
-  const handleShowCapturedCards = player => {
+  const handleShowCapturedCards = (player) => {
     setSelectedPlayer(player);
     setShowCapturedModal(true);
   };
 
-  const handleCaptureCard = async targetCard => {
+  const handleCaptureCard = async (targetCard) => {
     if (!myTurn) return;
     if (isSameMonth(selectedHandCard, targetCard)) {
       let result;
@@ -98,7 +98,7 @@ export default function GamePage() {
     }
   };
 
-  const handleDiscardCard = async card => {
+  const handleDiscardCard = async (card) => {
     if (!myTurn) return;
     if (filteredTableCards.length > 0) return; // cannot discard if there are filtered table cards
 
@@ -136,7 +136,7 @@ export default function GamePage() {
         setFilteredTableCards([]);
         return;
       }
-      setFilteredTableCards(gameState.table.filter(card => isSameMonth(card, selectedHandCard)));
+      setFilteredTableCards(gameState.table.filter((card) => isSameMonth(card, selectedHandCard)));
     };
 
     filterTableCards();
@@ -261,17 +261,13 @@ export default function GamePage() {
   }
 
   return (
-    <div className="w-full h-screen bg-gray-800 text-white p-1 sm:p-2 md:p-3 flex flex-col justify-between overflow-hidden gap-1">
+    <div className="w-full h-full min-h-0 bg-gray-800 text-white p-1 sm:p-2 md:p-3 flex flex-col justify-between overflow-hidden gap-1">
       {/* Top Section */}
       <div className="bg-black bg-opacity-70 rounded-lg p-2 sm:p-3 md:p-4 shadow-lg flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-3 md:gap-4">
         <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 md:gap-4 text-center sm:text-left min-w-0 flex-shrink">
-          <p className="text-yellow-300 text-xs sm:text-sm md:text-base lg:text-lg truncate">
-            {gameState.players[gameState.currentTurnIndex]?.name ?? "Unknown"}'s Turn
-          </p>
+          <p className="text-yellow-300 text-xs sm:text-sm md:text-base lg:text-lg truncate">{gameState.players[gameState.currentTurnIndex]?.name ?? "Unknown"}'s Turn</p>
           <p className="text-blue-300 text-xs sm:text-sm md:text-base lg:text-lg">Round: {gameState.currentRound}</p>
-          {handCardsDisabled && (
-            <p className="text-red-300 text-xs sm:text-sm md:text-base animate-pulse hidden xs:inline">⚠️ Play flipped card first</p>
-          )}
+          {handCardsDisabled && <p className="text-red-300 text-xs sm:text-sm md:text-base animate-pulse hidden xs:inline">⚠️ Play flipped card first</p>}
         </div>
 
         <div className="flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-4 p-1 sm:p-2">
@@ -293,10 +289,7 @@ export default function GamePage() {
           >
             Library
           </button>
-          <button
-            className="bg-red-600 hover:bg-red-700 px-3 py-2 sm:px-4 sm:py-2 md:px-5 md:py-3 rounded-lg text-xs sm:text-sm md:text-base"
-            onClick={handleLeaveGame}
-          >
+          <button className="bg-red-600 hover:bg-red-700 px-3 py-2 sm:px-4 sm:py-2 md:px-5 md:py-3 rounded-lg text-xs sm:text-sm md:text-base" onClick={handleLeaveGame}>
             Leave
           </button>
         </div>
@@ -304,13 +297,11 @@ export default function GamePage() {
 
       {/* Players' Captured Cards */}
       <div className="bg-black bg-opacity-50 rounded-lg p-2 sm:p-3 md:p-4 flex justify-center sm:justify-around items-center gap-2 sm:gap-3 md:gap-4 overflow-x-auto min-h-[50px] sm:min-h-[60px] md:min-h-[70px]">
-        {gameState.players.map(gamePlayer => (
+        {gameState.players.map((gamePlayer) => (
           <div
             key={gamePlayer.id}
             className={`px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-4 text-center rounded-lg border-2 cursor-pointer text-xs sm:text-sm md:text-base min-w-[85px] sm:min-w-[110px] md:min-w-[130px] ${
-              gamePlayer.id === player.playerId
-                ? "bg-blue-700 border-blue-500 hover:border-yellow-300"
-                : "bg-gray-800 border-gray-600 hover:border-yellow-400"
+              gamePlayer.id === player.playerId ? "bg-blue-700 border-blue-500 hover:border-yellow-300" : "bg-gray-800 border-gray-600 hover:border-yellow-400"
             }`}
             onClick={() => handleShowCapturedCards(gamePlayer)}
           >
@@ -351,7 +342,7 @@ export default function GamePage() {
         <div className="flex-1 bg-black bg-opacity-30 rounded-lg p-1 sm:p-2 overflow-auto min-h-0">
           <div className="flex flex-wrap justify-center items-center gap-x-2 gap-y-1 min-h-full content-center">
             {gameState.table?.map(
-              card =>
+              (card) =>
                 card && (
                   <Card
                     key={card.id}
@@ -365,7 +356,7 @@ export default function GamePage() {
                     isSelectable={!!selectedHandCard}
                     cardType="table"
                   />
-                )
+                ),
             )}
           </div>
         </div>
@@ -385,7 +376,7 @@ export default function GamePage() {
         </h2>
 
         <div className="flex flex-wrap justify-center gap-1 max-h-32 sm:max-h-40">
-          {gameState.myHand?.map(card => (
+          {gameState.myHand?.map((card) => (
             <Card
               key={card.id}
               card={card}
