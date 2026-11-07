@@ -150,20 +150,6 @@ To preview the production build locally:
 npm run preview
 ```
 
-## Deployment
-
-The frontend is configured to support deployment through Vercel.
-
-```bash
-npm run deploy
-```
-
-This command runs:
-
-```bash
-vercel --prod
-```
-
 Make sure the Vercel CLI is installed and configured before deploying. Also configure the production `VITE_WEBSOCKET_URL` to point to your deployed backend server.
 
 ## Related Project
